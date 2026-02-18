@@ -25,7 +25,7 @@
 
 (with-eval-after-load 'magit
   (transient-append-suffix 'magit-diff "d"
-    '("R" "AI Review" hutch-magit-review)))
+    '("R" "Hutch code review" hutch-magit-review)))
 
 (provide 'magit-hutch)
 

@@ -182,14 +182,14 @@
 
 (defun hutch--setup-buffer ()
   "Create and prepare the review buffer. Return it."
-  (let ((buf (get-buffer-create "*hutch: code review*")))
+  (let ((buf (get-buffer-create "*magit-hutch: code review*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer))
       (hutch-mode)
       (let ((inhibit-read-only t))
         (magit-insert-section (review-root)
-          (insert (propertize "hutch: Code Review\n"
+          (insert (propertize "magit-hutch: code review\n"
                               'font-lock-face 'magit-section-heading)))))
     buf))
 
