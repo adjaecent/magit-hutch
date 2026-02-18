@@ -1,10 +1,19 @@
-#+title: magit-hutch: code-review agent for emacs and magit
+#+title: magit-hutch: code-review agent for emacs
 
-`magit-hutch` is a code-review agent that runs inside emacs. Invoke it from a magit buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to third-party review harnesses.
+=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a magit buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
-* Installation
+It tries to manage the input prompt sizes as much as possible. It currently only sends initial diffs, but the agent has access to the following tools to make better decisions:
 
-It uses the `llm` package under the hood, so a `hutch-provider` must be configured beforehand. We recommend using SOTA models only, since the output from cheaper models can be unreliable.
+1. =search-codebase=
+2. =read-file=
+3. =git-log=
+4. =git-blame=
+
+These tools are run with baked-in guardrails to not overburden the context length. In the future, this could be even tighter by letting the primary agent invoke sub-agents with focussed purposes, possibly in the direction of [[https://arxiv.org/abs/2512.24601][RLMs]].
+
+** Installation
+
+It uses the =llm= package under the hood, so a =hutch-provider= must be configured beforehand. We recommend using SOTA models only, since the output from cheaper models can be unreliable.
 
 #+begin_src emacs-lisp
 (use-package magit-hutch
@@ -16,10 +25,10 @@ It uses the `llm` package under the hood, so a `hutch-provider` must be configur
                          :chat-model "claude-sonnet-4-5-20250929")))
 #+end_src
 
-* Usage
+** Usage
 
 From any magit buffer, press =d R= to run a review on your changes.
 
-* LLM-usage disclosure
+** LLM-usage disclosure
 
 Most of the UI code is written in an AI-assisted way, but carefully examined. The rest of the agent and operational code is largely hand-written.
