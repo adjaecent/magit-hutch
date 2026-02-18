@@ -1,26 +1,13 @@
-;;; hutch.el --- AI code review for magit -*- lexical-binding: t; -*-
-
-;; Copyright (C) 2025 adjaecent
-;;
-;; Author: adjaecent
-;; URL: https://github.com/adjaecent/magit-hutch
-;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (magit "4.0") (llm "0.20"))
-
-;;; Commentary:
-
-;; Hutch provides AI-powered code review integrated with magit.
-;; It reviews staged changes, unpushed commits, and branch diffs
-;; using an LLM with tool-calling for codebase context.
+;;; magit-hutch-agent.el --- LLM review agent -*- lexical-binding: t; -*-
 
 ;;; Code:
 
 (require 'llm)
 (require 'json)
-(require 'hutch-debug)
-(require 'hutch-git)
-(require 'hutch-prompts)
-(require 'hutch-tools)
+(require 'magit-hutch-debug)
+(require 'magit-hutch-git)
+(require 'magit-hutch-prompts)
+(require 'magit-hutch-tools)
 
 ;;; --- User-facing options ---
 
@@ -174,6 +161,6 @@ STATUS must be one of `hutch--valid-result-statuses'."
                     (plist-get scope :scope) (plist-get scope :desc))
         (hutch-review-scope scope callback)))))
 
-(provide 'hutch)
+(provide 'magit-hutch-agent)
 
-;;; hutch.el ends here
+;;; magit-hutch-agent.el ends here

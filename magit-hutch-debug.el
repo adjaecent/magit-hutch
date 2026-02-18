@@ -1,4 +1,4 @@
-;;; hutch-debug.el --- Debug logging -*- lexical-binding: t; -*-
+;;; magit-hutch-debug.el --- Debug logging -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -20,6 +20,6 @@ FMT and ARGS are passed to `format'."
   (interactive)
   (display-buffer (get-buffer-create hutch--log-buffer)))
 
-(provide 'hutch-debug)
+(provide 'magit-hutch-debug)
 
-;;; hutch-debug.el ends here
+;;; magit-hutch-debug.el ends here

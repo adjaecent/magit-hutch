@@ -1,4 +1,4 @@
-;;; hutch-prompts.el --- Prompts and examples -*- lexical-binding: t; -*-
+;;; magit-hutch-prompts.el --- Prompts and examples -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -57,6 +57,6 @@ Diff to review:
 \"lgtm\": false}, {\"file\": \"config.py\", \"lgtm\": true}]")
   "Few-shot example for hutch review. Cons of (input . expected-output).")
 
-(provide 'hutch-prompts)
+(provide 'magit-hutch-prompts)
 
-;;; hutch-prompts.el ends here
+;;; magit-hutch-prompts.el ends here

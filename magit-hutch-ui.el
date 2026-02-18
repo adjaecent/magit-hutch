@@ -1,4 +1,4 @@
-;;; hutch-ui.el --- Magit-section UI for hutch reviews -*- lexical-binding: t; -*-
+;;; magit-hutch-ui.el --- Magit-section UI for hutch reviews -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -7,7 +7,7 @@
 
 ;;; Code:
 
-(require 'hutch)
+(require 'magit-hutch-agent)
 (require 'magit-section)
 
 ;;; --- Mode and keymaps ---
@@ -244,10 +244,6 @@
            (lambda (result)
              (hutch--render-result buf result))))))))
 
-(with-eval-after-load 'magit
-  (transient-append-suffix 'magit-diff "d"
-    '("R" "AI Review" hutch-magit-review)))
+(provide 'magit-hutch-ui)
 
-(provide 'hutch-ui)
-
-;;; hutch-ui.el ends here
+;;; magit-hutch-ui.el ends here

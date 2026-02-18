@@ -1,4 +1,4 @@
-;;; hutch-git.el --- Git helpers, scopes, and diff collection -*- lexical-binding: t; -*-
+;;; magit-hutch-git.el --- Git helpers, scopes, and diff collection -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -95,6 +95,6 @@ SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
                     (hutch--collect-unpushed)
                     (hutch--collect-staged))))
 
-(provide 'hutch-git)
+(provide 'magit-hutch-git)
 
-;;; hutch-git.el ends here
+;;; magit-hutch-git.el ends here

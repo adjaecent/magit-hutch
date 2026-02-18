@@ -1,10 +1,10 @@
-;;; hutch-tools.el --- Tool functions for the review agent -*- lexical-binding: t; -*-
+;;; magit-hutch-tools.el --- Tool functions for the review agent -*- lexical-binding: t; -*-
 
 ;;; Code:
 
 (require 'magit)
 (require 'llm)
-(require 'hutch-debug)
+(require 'magit-hutch-debug)
 
 ;;; --- Tool functions ---
 
@@ -129,6 +129,6 @@ Use this to see who last modified lines and in what commit."
                   :optional t))))
   "Tools available to the hutch review agent.")
 
-(provide 'hutch-tools)
+(provide 'magit-hutch-tools)
 
-;;; hutch-tools.el ends here
+;;; magit-hutch-tools.el ends here
