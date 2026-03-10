@@ -30,7 +30,7 @@ SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
         :hash  (secure-hash 'sha256 diff)
         :desc  (if (and head base) (format "%s..%s" base head) "")))
 
-;;; --- Git helpers ---
+;;; --- Helpers ---
 
 (defun hutch--symbolic-ref ()
   "Return the symbolic ref for origin/HEAD."

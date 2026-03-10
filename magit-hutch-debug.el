@@ -20,6 +20,18 @@ FMT and ARGS are passed to `format'."
   (interactive)
   (display-buffer (get-buffer-create hutch--log-buffer)))
 
+(defconst hutch--source-directory
+  (file-name-directory (or load-file-name buffer-file-name))
+  "Directory where magit-hutch source files live.")
+
+(defun hutch-reload ()
+  "Reload all magit-hutch source files."
+  (interactive)
+  (mapc #'load-file
+        (file-expand-wildcards
+         (expand-file-name "*.el" hutch--source-directory)))
+  (message "hutch: reloaded from %s" hutch--source-directory))
+
 (provide 'magit-hutch-debug)
 
 ;;; magit-hutch-debug.el ends here

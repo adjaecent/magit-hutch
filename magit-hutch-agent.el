@@ -3,7 +3,6 @@
 ;;; Code:
 
 (require 'llm)
-(require 'json)
 (require 'magit-hutch-debug)
 (require 'magit-hutch-git)
 (require 'magit-hutch-prompts)
@@ -18,30 +17,9 @@ Set this to an `llm' provider instance, e.g.:
     (make-llm-claude :key (getenv \"ANTHROPIC_API_KEY\")
                      :chat-model \"claude-sonnet-4-5-20250929\"))")
 
-(defvar hutch-reasoning 'medium
+(defvar hutch-reasoning 'none
   "Reasoning level for the review prompt.
 One of nil, `none', `light', `medium', or `maximum'.")
-
-;;; --- Response parsing ---
-
-(defun hutch--strip-code-fences (str)
-  "Remove markdown code fences from STR if present."
-  (if (string-prefix-p "```" str)
-      (replace-regexp-in-string
-       "^```[a-z]*\n?" ""
-       (replace-regexp-in-string "\n?```$" "" str))
-    str))
-
-(defun hutch--parse-json (str)
-  "Parse STR as JSON, return list of plists or nil on error."
-  (condition-case err
-      (let ((json-object-type 'plist)
-            (json-array-type 'list)
-            (json-key-type 'keyword))
-        (json-read-from-string str))
-    (error
-     (message "hutch: failed to parse JSON: %s" (error-message-string err))
-     nil)))
 
 ;;; --- Findings ---
 
@@ -60,43 +38,16 @@ TYPE must be one of `hutch--valid-finding-types'."
         :desc desc
         :patch patch))
 
-(defun hutch--normalize-finding (raw)
-  "Normalize a RAW finding plist into a typed finding."
-  (let ((file  (or (plist-get raw :file) "unknown"))
-        (lgtm  (plist-get raw :lgtm))
-        (patch (or (plist-get raw :patch)
-                   (plist-get raw :fix)))
-        (lines (or (plist-get raw :lines) "?"))
-        (title (or (plist-get raw :title) "Issue"))
-        (desc  (or (plist-get raw :description) "")))
-    (cond
-     ((eq lgtm t) (hutch--make-finding 'lgtm file nil nil nil nil))
-     (patch       (hutch--make-finding 'suggestion file lines title desc patch))
-     (t           (hutch--make-finding 'comment file lines title desc nil)))))
-
-(defun hutch--parse-response (response)
-  "Parse RESPONSE string into a list of normalized finding plists."
-  (when-let ((raw (thread-last response
-                               string-trim
-                               hutch--strip-code-fences
-                               hutch--parse-json)))
-    (mapcar #'hutch--normalize-finding raw)))
+(defun hutch--truncate (str max)
+  "Truncate STR to MAX chars, appending ellipsis if needed."
+  (if (> (length str) max)
+      (concat (substring str 0 (- max 1)) "\u2026")
+    str))
 
 ;;; --- Results ---
 
-(defconst hutch--valid-result-statuses '(:ok :error)
-  "Valid result status keywords.")
-
-(defun hutch--response-text (response)
-  "Extract text from RESPONSE, which may be a string or multi-output plist."
-  (if (stringp response) response (plist-get response :text)))
-
 (defun hutch--make-result (status scope findings emsg)
-  "Create a result plist with STATUS for SCOPE.
-STATUS must be one of `hutch--valid-result-statuses'."
-  (unless (memq status hutch--valid-result-statuses)
-    (error "Invalid result status %s, must be one of %s"
-           status hutch--valid-result-statuses))
+  "Create a result plist with STATUS for SCOPE."
   (list :status   status
         :scope    (plist-get scope :scope)
         :desc     (plist-get scope :desc)
@@ -104,36 +55,90 @@ STATUS must be one of `hutch--valid-result-statuses'."
         :findings findings
         :emsg     emsg))
 
-(defun hutch--make-success-result (scope response)
-  "Build a success result plist from SCOPE and RESPONSE."
-  (let ((text (hutch--response-text response)))
-    (hutch--log "llm" "success for %s: %d chars"
-                (plist-get scope :scope) (length (or text "")))
-    (hutch--make-result :ok
-                        scope
-                        (when text (hutch--parse-response text))
-                        nil)))
-
 (defun hutch--make-error-result (scope type msg)
   "Build an error result plist from SCOPE, error TYPE, and MSG."
   (hutch--log "llm" "error for %s: %s: %s"
               (plist-get scope :scope) type msg)
-  (hutch--make-result :error
-                      scope
-                      nil
-                      (format "%s: %s" type msg)))
+  (hutch--make-result :error scope nil (format "%s: %s" type msg)))
 
 ;;; --- LLM review ---
+
+(defvar hutch-max-tokens 4096
+  "Maximum output tokens for the LLM review response.")
 
 (defun hutch--make-prompt (scope)
   "Build an llm-chat-prompt for SCOPE with tools attached."
   (llm-make-chat-prompt
    (format hutch-review-template (plist-get scope :diff))
    :context hutch-system-prompt
-   :examples (list hutch--review-example)
    :tools hutch--tools
    :reasoning hutch-reasoning
-   :response-format 'json))
+   :max-tokens hutch-max-tokens))
+
+(defvar hutch-max-tool-rounds 10
+  "Maximum number of tool-use rounds before forcing a result.")
+
+(defun hutch--normalize-tool-finding (raw)
+  "Normalize RAW alist finding from submit_review into a finding plist.
+RAW is an alist with symbol keys (file, title, description, etc.)."
+  (let* ((file  (or (alist-get 'file raw) "unknown"))
+         (lgtm  (eq (alist-get 'lgtm raw) t))
+         (patch (alist-get 'patch raw))
+         (lines (or (alist-get 'lines raw) "?"))
+         (title (hutch--truncate (or (alist-get 'title raw) "Issue") 80))
+         (desc  (hutch--truncate (or (alist-get 'description raw) "") 300)))
+    (cond
+     (lgtm  (hutch--make-finding 'lgtm file nil nil nil nil))
+     ((and patch (stringp patch) (not (string-empty-p patch)))
+      (hutch--make-finding 'suggestion file lines title desc patch))
+     (t     (hutch--make-finding 'comment file lines title desc nil)))))
+
+(defun hutch--review-loop (scope prompt callback &optional round)
+  "Send PROMPT to the LLM for SCOPE, looping on tool-use rounds.
+When the LLM returns text or submit_review is called, invoke CALLBACK.
+ROUND tracks the current iteration (default 0)."
+  (when (null round)
+    (setq hutch--submitted-findings nil))
+  (let ((round (or round 0)))
+    (llm-chat-async
+     hutch-provider
+     prompt
+     (lambda (response)
+       (cond
+        ;; submit_review was called — use its findings directly
+        (hutch--submitted-findings
+         (hutch--log "llm" "submit_review received for %s: %d findings"
+                     (plist-get scope :scope)
+                     (length hutch--submitted-findings))
+         (let ((findings (mapcar #'hutch--normalize-tool-finding
+                                 hutch--submitted-findings)))
+           (funcall callback
+                    (hutch--make-result :ok scope findings nil))))
+        ;; Tool round (not submit_review) — continue looping
+        ((and (listp response) (plist-get response :tool-results))
+         (if (>= round hutch-max-tool-rounds)
+             (progn
+               (hutch--log "llm" "hit max tool rounds (%d) for %s"
+                           hutch-max-tool-rounds (plist-get scope :scope))
+               (funcall callback
+                        (hutch--make-error-result
+                         scope 'tool-loop
+                         (format "exceeded %d tool rounds"
+                                 hutch-max-tool-rounds))))
+           (hutch--log "llm" "tool round %d for %s, continuing..."
+                       (1+ round) (plist-get scope :scope))
+           (hutch--review-loop scope prompt callback (1+ round))))
+        ;; Text response — model didn't call submit_review
+        (t
+         (hutch--log "llm" "text response (no submit_review) for %s"
+                     (plist-get scope :scope))
+         (funcall callback
+                  (hutch--make-error-result
+                   scope 'no-submit
+                   "model responded with text instead of calling submit_review")))))
+     (lambda (type msg)
+       (funcall callback (hutch--make-error-result scope type msg)))
+     t)))
 
 (defun hutch-review-scope (scope callback)
   "Review SCOPE asynchronously with tool use. Call CALLBACK with a result plist."
@@ -141,14 +146,7 @@ STATUS must be one of `hutch--valid-result-statuses'."
     (error "hutch-provider is not set"))
   (hutch--log "llm" "starting review for %s %s"
               (plist-get scope :scope) (plist-get scope :desc))
-  (llm-chat-async
-   hutch-provider
-   (hutch--make-prompt scope)
-   (lambda (response)
-     (funcall callback (hutch--make-success-result scope response)))
-   (lambda (type msg)
-     (funcall callback (hutch--make-error-result scope type msg)))
-   t))
+  (hutch--review-loop scope (hutch--make-prompt scope) callback))
 
 (defun hutch-review (callback)
   "Review all available scopes. Call CALLBACK with each result plist as it arrives."

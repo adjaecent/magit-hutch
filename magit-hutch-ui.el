@@ -180,43 +180,51 @@
 
 ;;; --- Buffer and entry point ---
 
+(defvar-local hutch--scopes nil "Scopes being reviewed.")
+(defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
+
+(defun hutch--scope-label (scope)
+  "Return the display label for SCOPE."
+  (format "%s %s" (plist-get scope :scope) (plist-get scope :desc)))
+
 (defun hutch--setup-buffer ()
   "Create and prepare the review buffer. Return it."
   (let ((buf (get-buffer-create "*magit-hutch: code review*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer))
-      (hutch-mode)
-      (let ((inhibit-read-only t))
-        (magit-insert-section (review-root)
-          (insert (propertize "magit-hutch: code review\n"
-                              'font-lock-face 'magit-section-heading)))))
+      (hutch-mode))
     buf))
 
-(defun hutch--replace-status (buf old-text new-text)
-  "In BUF, replace OLD-TEXT with NEW-TEXT."
+(defun hutch--render-buffer (buf)
+  "Re-render BUF from `hutch--scopes' and `hutch--results'."
   (with-current-buffer buf
     (let ((inhibit-read-only t))
-      (save-excursion
-        (goto-char (point-min))
-        (when (search-forward old-text nil t)
-          (replace-match new-text t t))))))
+      (erase-buffer)
+      (magit-insert-section (review-root)
+        (magit-insert-heading
+          (propertize "magit-hutch: code review"
+                      'font-lock-face 'magit-section-heading))
+        (dolist (scope hutch--scopes)
+          (let* ((label (hutch--scope-label scope))
+                 (entry (assoc label hutch--results #'equal))
+                 (result (cdr entry)))
+            (cond
+             ((null result)
+              (insert (format "  Reviewing: %s...\n" (downcase label))))
+             ((eq (plist-get result :status) :error)
+              (insert (format "  Review failed: %s\n"
+                              (plist-get result :emsg))))
+             (t
+              (hutch--insert-findings
+               (plist-get result :findings) label)))))))))
 
 (defun hutch--render-result (buf result)
-  "Render a review RESULT into BUF."
-  (let* ((scope (plist-get result :scope))
-         (desc (plist-get result :desc))
-         (label (format "%s %s" scope desc))
-         (status-text (format "  Reviewing: %s..." (downcase label))))
-    (if (eq (plist-get result :status) :error)
-        (hutch--replace-status buf status-text
-                               (format "  Review failed: %s"
-                                       (plist-get result :emsg)))
-      (hutch--replace-status buf status-text "  Review complete")
-      (with-current-buffer buf
-        (let ((inhibit-read-only t))
-          (goto-char (point-max))
-          (hutch--insert-findings (plist-get result :findings) label))))))
+  "Store RESULT and re-render BUF."
+  (let ((label (hutch--scope-label result)))
+    (with-current-buffer buf
+      (push (cons label result) hutch--results))
+    (hutch--render-buffer buf)))
 
 ;;;###autoload
 (defun hutch-magit-review ()
@@ -226,18 +234,11 @@
     (if (null scopes)
         (message "hutch: no changes to review")
       (let ((buf (hutch--setup-buffer)))
-        (pop-to-buffer buf)
-        ;; Insert status lines
         (with-current-buffer buf
-          (let ((inhibit-read-only t))
-            (goto-char (point-max))
-            (dolist (scope scopes)
-              (let* ((label (format "%s %s"
-                                    (plist-get scope :scope)
-                                    (plist-get scope :desc))))
-                (insert (format "  Reviewing: %s...\n"
-                                (downcase label)))))))
-        ;; Fire off reviews
+          (setq hutch--scopes scopes
+                hutch--results nil))
+        (hutch--render-buffer buf)
+        (pop-to-buffer buf)
         (dolist (scope scopes)
           (hutch-review-scope
            scope

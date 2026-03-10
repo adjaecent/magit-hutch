@@ -62,6 +62,20 @@
       (hutch--log "tool" "git_blame: %d chars returned" (length result))
       (if (string-empty-p result) "No blame data found." result))))
 
+;;; --- Submit review ---
+
+(defvar hutch--submitted-findings nil
+  "Findings from the last `submit_review' tool call.
+Set by the tool function, consumed by the review loop.")
+
+(defun hutch--tool-submit-review (findings)
+  "Receive FINDINGS from the LLM and store them.
+FINDINGS is a vector of alists, each with keys like
+`file', `title', `description', `lines', `patch', `lgtm'."
+  (hutch--log "tool" "submit_review: %d findings" (length findings))
+  (setq hutch--submitted-findings (append findings nil))
+  "Review submitted.")
+
 ;;; --- Tool definitions ---
 
 (defvar hutch--tools
@@ -126,7 +140,24 @@ Use this to see who last modified lines and in what commit."
                 '(:name "end_line"
                   :type integer
                   :description "Last line to blame (1-indexed, inclusive)"
-                  :optional t))))
+                  :optional t)))
+   (llm-make-tool
+    :function #'hutch--tool-submit-review
+    :name "submit_review"
+    :description "Submit your final code review findings. You MUST call this \
+exactly once when your review is complete. Every review must end with this call."
+    :args (list
+           `(:name "findings"
+             :type array
+             :description "Array of review findings"
+             :items (:type object
+                     :properties
+                     (:file (:type string :description "File path")
+                      :lines (:type string :description "Line range, e.g. \"21-22\" or \"45\"")
+                      :title (:type string :description "Short issue title, max 80 chars")
+                      :description (:type string :description "1-2 sentence explanation, max 300 chars")
+                      :patch (:type string :description "Unified diff patch applicable with git apply, or null")
+                      :lgtm (:type boolean :description "true if file has no issues")))))))
   "Tools available to the hutch review agent.")
 
 (provide 'magit-hutch-tools)
