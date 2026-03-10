@@ -29,6 +29,26 @@ It uses the =llm= package under the hood, so a =hutch-provider= must be configur
 
 From any magit buffer, press =d R= to run a review on your changes.
 
+** Roadmap
+
+*** Review caching
+Store diff checksums in =.git/hutch-review-cache= to skip re-running reviews when the diff hasn't changed (sha256 per section). Subsequent sessions without changes don't re-run the review.
+
+*** Persistent reviews
+Persist reviews under =refs/hutch/<branch>= with a session id at commit time. Past review findings are fed back as context: the model sees "last review flagged X in this file, author accepted/rejected it." This prevents re-flagging dismissed issues, catches recurring patterns, and detects whether previous suggestions were actually addressed.
+
+*** Tree-sitter tools
+Expose tree-sitter as a tool so the agent can query ASTs: find function boundaries, list callers, extract type signatures, etc.
+
+*** Context graph
+A dependency graph of the codebase built lazily as the agent explores. Nodes are files/functions with content hashes, edges are relationships (calls, imports, tests). Used for three things: fetching relevant context (walk forward edges), invalidating stale cache (walk reverse edges), and grouping related files for joint review (connected components). Persisted to =refs/hutch/<branch>= between runs.
+
+*** Composable tool primitives
+Instead of hardcoding every tool, expose primitives (git, tree-sitter, file I/O) and let the model compose them. The model writes elisp in a sandboxed eval to build custom queries on the fly — "find all callers of this function that don't handle the nil case." Tools that generate tools.
+
+*** RLM-style agent loop
+The model doesn't get the full codebase in its prompt. It gets the diff summary and a set of tools, then decides what to look at. It calls =search_codebase=, reads the result, decides it needs more, calls =read_file=, and so on in a loop until it has enough context to produce findings. The model controls the retrieval strategy, not the code.
+
 ** LLM-usage disclosure
 
 Most of the UI code is written in an AI-assisted way, but carefully examined. The rest of the agent and operational code is largely hand-written.
