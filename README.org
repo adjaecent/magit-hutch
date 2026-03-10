@@ -49,6 +49,15 @@ Instead of hardcoding every tool, expose primitives (git, tree-sitter, file I/O)
 *** RLM-style agent loop
 The model doesn't get the full codebase in its prompt. It gets the diff summary and a set of tools, then decides what to look at. It calls =search_codebase=, reads the result, decides it needs more, calls =read_file=, and so on in a loop until it has enough context to produce findings. The model controls the retrieval strategy, not the code.
 
+*** Diff manifest instead of full diffs
+Send a list of changed files/hunks as a manifest and let the LLM use tools to read specific diffs on demand. Reduces context usage for large changesets.
+
+*** Batch apply with invalidation graph
+Mark suggestions for accept (instead of immediate apply), then bulk-apply all marked patches bottom-to-top within each file so line numbers don't shift. Track an invalidation graph: overlapping/adjacent patches in the same file are connected, applying one flags others as stale.
+
+*** Fix global state race in submit_review
+=hutch--submitted-findings= is global. Concurrent scope reviews can overwrite each other's findings. Use a per-scope callback or closure to capture findings instead.
+
 ** LLM-usage disclosure
 
 Most of the UI code is written in an AI-assisted way, but carefully examined. The rest of the agent and operational code is largely hand-written.
