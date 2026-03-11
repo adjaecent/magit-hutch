@@ -239,11 +239,9 @@
                 hutch--results nil))
         (hutch--render-buffer buf)
         (pop-to-buffer buf)
-        (dolist (scope scopes)
-          (hutch-review-scope
-           scope
-           (lambda (result)
-             (hutch--render-result buf result))))))))
+        (hutch-review scopes
+                      (lambda (result)
+                        (hutch--render-result buf result)))))))
 
 (provide 'magit-hutch-ui)
 

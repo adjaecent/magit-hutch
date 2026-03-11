@@ -7,6 +7,7 @@
 (require 'magit-hutch-git)
 (require 'magit-hutch-prompts)
 (require 'magit-hutch-tools)
+(require 'magit-hutch-cache)
 
 ;;; --- User-facing options ---
 
@@ -149,22 +150,22 @@ ROUND tracks the current iteration (default 0)."
 
 (defun hutch-review-scope (scope callback)
   "Review SCOPE asynchronously with tool use. Call CALLBACK with a result plist."
-  (unless hutch-provider
-    (error "hutch-provider is not set"))
-  (hutch--log "llm" "starting review for %s %s"
-              (plist-get scope :scope) (plist-get scope :desc))
+  (unless hutch-provider (error "hutch-provider is not set"))
   (hutch--review-loop scope (hutch--make-prompt scope) callback))
 
-(defun hutch-review (callback)
-  "Review all available scopes. Call CALLBACK with each result plist as it arrives."
-  (let ((scopes (hutch-collect-scopes)))
-    (if (null scopes)
-        (message "hutch: no changes to review")
-      (hutch--log "review" "found %d scopes" (length scopes))
-      (dolist (scope scopes)
-        (hutch--log "review" "dispatching %s %s"
-                    (plist-get scope :scope) (plist-get scope :desc))
-        (hutch-review-scope scope callback)))))
+(defun hutch-review (scopes callback)
+  "Review SCOPES with caching. Call CALLBACK with each result plist as it arrives."
+  (hutch--log "review" "found %d scopes" (length scopes))
+  (dolist (scope scopes)
+    (let ((hash (plist-get scope :hash))
+          (desc (plist-get scope :desc))
+          (scope-key (plist-get scope :scope)))
+      (if-let ((cached (hutch--cache-lookup hash)))
+          (progn
+            (hutch--log "review" "cache hit for %s %s" scope-key desc)
+            (funcall callback cached))
+        (hutch--log "review" "dispatching %s %s" scope-key desc)
+        (hutch-review-scope scope (hutch--write-through-cache-callback hash callback))))))
 
 (provide 'magit-hutch-agent)
 
