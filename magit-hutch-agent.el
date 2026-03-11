@@ -127,14 +127,22 @@ ROUND tracks the current iteration (default 0)."
            (hutch--log "llm" "tool round %d for %s, continuing..."
                        (1+ round) (plist-get scope :scope))
            (hutch--review-loop scope prompt callback (1+ round))))
-        ;; Text response — model didn't call submit_review
+        ;; Text response — nudge and keep looping
         (t
-         (hutch--log "llm" "text response (no submit_review) for %s"
-                     (plist-get scope :scope))
-         (funcall callback
-                  (hutch--make-error-result
-                   scope 'no-submit
-                   "model responded with text instead of calling submit_review")))))
+         (if (>= round hutch-max-tool-rounds)
+             (progn
+               (hutch--log "llm" "hit max rounds (%d) with text for %s"
+                           hutch-max-tool-rounds (plist-get scope :scope))
+               (funcall callback
+                        (hutch--make-error-result
+                         scope 'no-submit
+                         "model never called submit_review")))
+           (hutch--log "llm" "text response round %d for %s, nudging..."
+                       (1+ round) (plist-get scope :scope))
+           (llm-chat-prompt-append-response prompt response 'assistant)
+           (llm-chat-prompt-append-response
+            prompt "You must call submit_review now. Do not respond with text.")
+           (hutch--review-loop scope prompt callback (1+ round))))))
      (lambda (type msg)
        (funcall callback (hutch--make-error-result scope type msg)))
      t)))
