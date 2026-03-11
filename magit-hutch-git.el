@@ -12,23 +12,23 @@
 ;;   :head   -- the head ref (e.g. "HEAD", or nil for staged)
 ;;   :base   -- the base ref (e.g. "main", "origin/feat", or nil for staged)
 ;;   :desc   -- human-readable description (derived)
-;;   :diff   -- the diff string
-;;   :hash   -- sha256 of :diff (for caching)
+;;   :manifest -- formatted file change summary string
+;;   :hash     -- sha256 of :manifest (for caching)
 
 (defconst hutch--valid-scopes '(:staged :unpushed :branch)
   "Valid scope keywords.")
 
-(defun hutch--make-scope (scope head base diff)
-  "Create a scope plist for SCOPE with HEAD ref, BASE ref, and DIFF string.
-SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
+(defun hutch--make-scope (scope head base manifest)
+  "Create a scope plist for SCOPE with HEAD ref, BASE ref, and MANIFEST string.
+SCOPE must be one of `hutch--valid-scopes'."
   (unless (memq scope hutch--valid-scopes)
     (error "Invalid scope %s, must be one of %s" scope hutch--valid-scopes))
-  (list :scope scope
-        :head  head
-        :base  base
-        :diff  diff
-        :hash  (secure-hash 'sha256 diff)
-        :desc  (if (and head base) (format "%s..%s" base head) "")))
+  (list :scope    scope
+        :head     head
+        :base     base
+        :manifest manifest
+        :hash     (secure-hash 'sha256 manifest)
+        :desc     (if (and head base) (format "%s..%s" base head) "")))
 
 ;;; --- Helpers ---
 
@@ -59,11 +59,33 @@ SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
 
 ;;; --- Diff collection ---
 
-(defun hutch--git-diff (&rest args)
-  "Run git diff with ARGS, return the output string or nil if empty."
-  (let ((diff (with-temp-buffer
-                (apply #'magit-git-insert "diff" args)
-                (buffer-string))))
+(defun hutch--git-diff-numstat (&rest args)
+  "Run git diff --numstat with ARGS. Return formatted manifest string or nil."
+  (let* ((output (with-temp-buffer
+                   (apply #'magit-git-insert "diff" "--numstat" args)
+                   (buffer-string)))
+         (lines (split-string output "\n" t)))
+    (when lines
+      (mapconcat (lambda (line)
+                   (let ((parts (split-string line "\t")))
+                     (if (>= (length parts) 3)
+                         (format "%s (+%s -%s)"
+                                 (nth 2 parts) (nth 0 parts) (nth 1 parts))
+                       "")))
+                 lines "\n"))))
+
+(defun hutch--git-diff (scope &optional path)
+  "Run git diff for SCOPE, optionally limited to PATH.
+Returns the diff string or nil if empty."
+  (let* ((head (plist-get scope :head))
+         (base (plist-get scope :base))
+         (args (append (if (and (null head) (null base))
+                           '("--cached")
+                         (list base head))
+                       (when path (list "--" path))))
+         (diff (with-temp-buffer
+                 (apply #'magit-git-insert "diff" args)
+                 (buffer-string))))
     (and diff (not (string-empty-p diff)) diff)))
 
 (defun hutch--collect-branch ()
@@ -72,7 +94,7 @@ SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
         (default (hutch--default-branch)))
     (when (and current default (not (string= current default)))
       (let* ((base (or (hutch--merge-base default current) default))
-             (diff (hutch--git-diff base "HEAD")))
+             (diff (hutch--git-diff-numstat base "HEAD")))
         (when diff
           (hutch--make-scope :branch "HEAD" base diff))))))
 
@@ -80,12 +102,12 @@ SCOPE must be one of `hutch--valid-scopes'. Computes sha256 of DIFF."
   "Collect the unpushed scope, or nil if no upstream or no diff."
   (when-let ((current (magit-get-current-branch)))
     (when-let ((upstream (magit-get-upstream-branch current)))
-      (when-let ((diff (hutch--git-diff upstream "HEAD")))
+      (when-let ((diff (hutch--git-diff-numstat upstream "HEAD")))
         (hutch--make-scope :unpushed "HEAD" upstream diff)))))
 
 (defun hutch--collect-staged ()
   "Collect the staged scope, or nil if nothing staged."
-  (when-let ((diff (hutch--git-diff "--cached")))
+  (when-let ((diff (hutch--git-diff-numstat "--cached")))
     (hutch--make-scope :staged nil nil diff)))
 
 (defun hutch-collect-scopes ()

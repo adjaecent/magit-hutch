@@ -69,13 +69,12 @@ TYPE must be one of `hutch--valid-finding-types'."
 (defun hutch--make-prompt (scope)
   "Build an llm-chat-prompt for SCOPE with tools attached."
   (llm-make-chat-prompt
-   (format hutch-review-template (plist-get scope :diff))
+   (format hutch-review-template (plist-get scope :manifest))
    :context hutch-system-prompt
-   :tools hutch--tools
-   :reasoning hutch-reasoning
-   :max-tokens hutch-max-tokens))
+   :tools (hutch--tools-for-scope scope)
+   :reasoning hutch-reasoning))
 
-(defvar hutch-max-tool-rounds 10
+(defvar hutch-max-tool-rounds 20
   "Maximum number of tool-use rounds before forcing a result.")
 
 (defun hutch--normalize-tool-finding (raw)
