@@ -2,12 +2,14 @@
 
 =magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a magit buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
-It tries to manage the input prompt sizes as much as possible. It currently only sends initial diffs, but the agent has access to the following tools to make better decisions:
+It sends a manifest of changed files (not full diffs) and lets the agent fetch what it needs. The agent has access to the following tools:
 
-1. =search-codebase=
-2. =read-file=
-3. =git-log=
-4. =git-blame=
+1. =read_diff= — fetch the full diff for a specific file
+2. =search_codebase= — git grep for patterns
+3. =read_file= — read file contents (optionally a line range)
+4. =git_log= — recent commit history for a file
+5. =git_blame= — blame for a file or line range
+6. =surrounding_context= — tree-sitter enclosing definition lookup
 
 These tools are run with baked-in guardrails to not overburden the context length. In the future, this could be even tighter by letting the primary agent invoke sub-agents with focussed purposes, possibly in the direction of [[https://arxiv.org/abs/2512.24601][RLMs]].
 
