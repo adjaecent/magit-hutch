@@ -4,8 +4,9 @@
 
 (require 'magit)
 (require 'llm)
-(require 'magit-hutch-debug)
+(require 'magit-hutch-utils)
 (require 'magit-hutch-git)
+(require 'treesit-context)
 
 ;;; --- Tool functions ---
 
@@ -65,61 +66,18 @@
 
 ;;; --- Tree-sitter context ---
 
-(defvar hutch--treesit-lang-alist
-  '(("el" . elisp) ("py" . python) ("rb" . ruby) ("rs" . rust)
-    ("js" . javascript) ("ts" . typescript) ("tsx" . tsx)
-    ("go" . go) ("java" . java) ("c" . c) ("cpp" . cpp)
-    ("clj" . clojure) ("ex" . elixir) ("exs" . elixir))
-  "Map file extensions to tree-sitter language symbols.")
-
-(defvar hutch--treesit-definition-types
-  '("function_definition" "function_declaration" "method_definition"
-    "method_declaration" "class_definition" "class_declaration"
-    "defun" "special_form" "module_definition" "impl_item"
-    "function_item" "struct_item")
-  "Tree-sitter node types that represent definitions.")
-
-(defun hutch--treesit-lang-for-file (path)
-  "Return the tree-sitter language symbol for PATH, or nil."
-  (let ((ext (file-name-extension path)))
-    (alist-get ext hutch--treesit-lang-alist nil nil #'equal)))
-
-(defun hutch--treesit-enclosing-definition (lang full-path line)
-  "Find the enclosing definition node at LINE in FULL-PATH for LANG.
-Returns the node text with line numbers, or nil."
-  (when (treesit-language-available-p lang)
-    (with-temp-buffer
-      (insert-file-contents full-path)
-      (let* ((parser (treesit-parser-create lang))
-             (pos (save-excursion
-                    (goto-char (point-min))
-                    (forward-line (1- line))
-                    (point)))
-             (node (treesit-node-at pos))
-             (def (treesit-parent-until
-                   node
-                   (lambda (n)
-                     (member (treesit-node-type n)
-                             hutch--treesit-definition-types)))))
-        (when def
-          (let* ((start-line (line-number-at-pos (treesit-node-start def)))
-                 (text (treesit-node-text def)))
-            (format "Lines %d-%d:\n%s"
-                    start-line
-                    (+ start-line (length (split-string text "\n" t)) -1)
-                    text)))))))
-
-(defun hutch--tool-surrounding-context (path line)
-  "Return the enclosing definition around LINE in PATH using tree-sitter."
+(defun hutch--tool-surrounding-context (path line &optional depth)
+  "Return enclosing definitions around LINE in PATH using tree-sitter.
+Returns up to DEPTH levels (default 1), innermost first."
   (let* ((default-directory (magit-toplevel))
          (full-path (expand-file-name path default-directory)))
-    (hutch--log "tool" "surrounding_context: %s:%d" path line)
+    (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
     (if (not (file-exists-p full-path))
         (format "File not found: %s" path)
-      (let ((lang (hutch--treesit-lang-for-file path)))
+      (let ((lang (treesit-context-lang-for-file path)))
         (if (null lang)
             (format "No tree-sitter grammar for %s" (file-name-extension path))
-          (or (hutch--treesit-enclosing-definition lang full-path line)
+          (or (treesit-context-enclosing-definition lang full-path line depth)
               (format "No enclosing definition found at %s:%d" path line)))))))
 
 ;;; --- Read diff ---
@@ -132,17 +90,28 @@ Returns the node text with line numbers, or nil."
 
 ;;; --- Submit review ---
 
-(defvar hutch--submitted-findings nil
-  "Findings from the last `submit_review' tool call.
-Set by the tool function, consumed by the review loop.")
-
-(defun hutch--tool-submit-review (findings)
-  "Receive FINDINGS from the LLM and store them.
-FINDINGS is a vector of alists, each with keys like
-`file', `title', `description', `lines', `patch', `lgtm'."
-  (hutch--log "tool" "submit_review: %d findings" (length findings))
-  (setq hutch--submitted-findings (append findings nil))
-  "Review submitted.")
+(defun hutch--make-submit-tool (result-box)
+  "Return a submit_review tool that writes findings into RESULT-BOX."
+  (llm-make-tool
+   :function (lambda (findings)
+               (hutch--log "tool" "submit_review: %d findings" (length findings))
+               (hutch--result-box-set result-box (append findings nil))
+               "Review submitted.")
+   :name "submit_review"
+   :description "Submit your final code review findings. You MUST call this \
+exactly once when your review is complete. Every review must end with this call."
+   :args (list
+          `(:name "findings"
+            :type array
+            :description "Array of review findings"
+            :items (:type object
+                    :properties
+                    (:file (:type string :description "File path")
+                     :lines (:type string :description "Line range from the diff hunk headers, e.g. \"21-22\" or \"45\". Must reference actual changed lines, not the full file.")
+                     :title (:type string :description "Short issue title, max 80 chars")
+                     :description (:type string :description "1-2 sentence explanation, max 300 chars")
+                     :patch (:type string :description "Unified diff patch applicable with git apply, or null")
+                     :lgtm (:type boolean :description "true if file has no issues")))))))
 
 ;;; --- Tool definitions ---
 
@@ -157,9 +126,11 @@ Use this to inspect the actual changes before submitting findings."
                  :type string
                  :description "File path from the manifest"))))
 
-(defun hutch--tools-for-scope (scope)
-  "Return the tool list with a read_diff tool bound to SCOPE."
-  (cons (hutch--make-read-diff-tool scope) hutch--tools))
+(defun hutch--tools-for-scope (scope result-box)
+  "Return the tool list with read_diff bound to SCOPE and submit_review bound to RESULT-BOX."
+  (append (list (hutch--make-read-diff-tool scope)
+                (hutch--make-submit-tool result-box))
+          hutch--tools))
 
 (defvar hutch--tools
   (list
@@ -227,32 +198,20 @@ Use this to see who last modified lines and in what commit."
    (llm-make-tool
     :function #'hutch--tool-surrounding-context
     :name "surrounding_context"
-    :description "Get the enclosing function or class definition around a line \
-using tree-sitter. Use this to understand the full context of a changed line \
-without reading the entire file."
+    :description "Get enclosing definitions around a line using tree-sitter. \
+Use this to understand the full context of a changed line \
+without reading the entire file. \
+Pass depth to get multiple levels (e.g. function + class), but avoid going above 2."
     :args (list '(:name "path"
                   :type string
                   :description "File path relative to repo root")
                 '(:name "line"
                   :type integer
-                  :description "Line number to find context for (1-indexed)")))
-   (llm-make-tool
-    :function #'hutch--tool-submit-review
-    :name "submit_review"
-    :description "Submit your final code review findings. You MUST call this \
-exactly once when your review is complete. Every review must end with this call."
-    :args (list
-           `(:name "findings"
-             :type array
-             :description "Array of review findings"
-             :items (:type object
-                     :properties
-                     (:file (:type string :description "File path")
-                      :lines (:type string :description "Line range from the diff hunk headers, e.g. \"21-22\" or \"45\". Must reference actual changed lines, not the full file.")
-                      :title (:type string :description "Short issue title, max 80 chars")
-                      :description (:type string :description "1-2 sentence explanation, max 300 chars")
-                      :patch (:type string :description "Unified diff patch applicable with git apply, or null")
-                      :lgtm (:type boolean :description "true if file has no issues")))))))
+                  :description "Line number to find context for (1-indexed)")
+                '(:name "depth"
+                  :type integer
+                  :description "Number of enclosing definitions to return (default 1)"
+                  :optional t))))
   "Tools available to the hutch review agent.")
 
 (provide 'magit-hutch-tools)

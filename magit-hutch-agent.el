@@ -3,7 +3,7 @@
 ;;; Code:
 
 (require 'llm)
-(require 'magit-hutch-debug)
+(require 'magit-hutch-utils)
 (require 'magit-hutch-git)
 (require 'magit-hutch-prompts)
 (require 'magit-hutch-tools)
@@ -39,12 +39,6 @@ TYPE must be one of `hutch--valid-finding-types'."
         :desc desc
         :patch patch))
 
-(defun hutch--truncate (str max)
-  "Truncate STR to MAX chars, appending ellipsis if needed."
-  (if (> (length str) max)
-      (concat (substring str 0 (- max 1)) "\u2026")
-    str))
-
 ;;; --- Results ---
 
 (defun hutch--make-result (status scope findings emsg)
@@ -58,8 +52,7 @@ TYPE must be one of `hutch--valid-finding-types'."
 
 (defun hutch--make-error-result (scope type msg)
   "Build an error result plist from SCOPE, error TYPE, and MSG."
-  (hutch--log "llm" "error for %s: %s: %s"
-              (plist-get scope :scope) type msg)
+  (hutch--log "llm" "error for %s: %s: %s" (plist-get scope :scope) type msg)
   (hutch--make-result :error scope nil (format "%s: %s" type msg)))
 
 ;;; --- LLM review ---
@@ -67,16 +60,13 @@ TYPE must be one of `hutch--valid-finding-types'."
 (defvar hutch-max-tokens 4096
   "Maximum output tokens for the LLM review response.")
 
-(defun hutch--make-prompt (scope)
+(defun hutch--make-prompt (scope result-box)
   "Build an llm-chat-prompt for SCOPE with tools attached."
   (llm-make-chat-prompt
    (format hutch-review-template (plist-get scope :manifest))
    :context hutch-system-prompt
-   :tools (hutch--tools-for-scope scope)
+   :tools (hutch--tools-for-scope scope result-box)
    :reasoning hutch-reasoning))
-
-(defvar hutch-max-tool-rounds 20
-  "Maximum number of tool-use rounds before forcing a result.")
 
 (defun hutch--normalize-tool-finding (raw)
   "Normalize RAW alist finding from submit_review into a finding plist.
@@ -85,73 +75,79 @@ RAW is an alist with symbol keys (file, title, description, etc.)."
          (lgtm  (eq (alist-get 'lgtm raw) t))
          (patch (alist-get 'patch raw))
          (lines (or (alist-get 'lines raw) "?"))
-         (title (hutch--truncate (or (alist-get 'title raw) "Issue") 80))
-         (desc  (hutch--truncate (or (alist-get 'description raw) "") 300)))
+         (title (hutch--str-truncate (or (alist-get 'title raw) "Issue") 80))
+         (desc  (hutch--str-truncate (or (alist-get 'description raw) "") 300)))
     (cond
-     (lgtm  (hutch--make-finding 'lgtm file nil nil nil nil))
+     (lgtm (hutch--make-finding 'lgtm file nil nil nil nil))
      ((and patch (stringp patch) (not (string-empty-p patch)))
       (hutch--make-finding 'suggestion file lines title desc patch))
-     (t     (hutch--make-finding 'comment file lines title desc nil)))))
+     (t (hutch--make-finding 'comment file lines title desc nil)))))
 
-(defun hutch--review-loop (scope prompt callback &optional round)
-  "Send PROMPT to the LLM for SCOPE, looping on tool-use rounds.
-When the LLM returns text or submit_review is called, invoke CALLBACK.
-ROUND tracks the current iteration (default 0)."
-  (when (null round)
-    (setq hutch--submitted-findings nil))
-  (let ((round (or round 0)))
-    (llm-chat-async
-     hutch-provider
-     prompt
-     (lambda (response)
-       (cond
-        ;; submit_review was called — use its findings directly
-        (hutch--submitted-findings
-         (hutch--log "llm" "submit_review received for %s: %d findings"
-                     (plist-get scope :scope)
-                     (length hutch--submitted-findings))
-         (let ((findings (mapcar #'hutch--normalize-tool-finding
-                                 hutch--submitted-findings)))
-           (funcall callback
-                    (hutch--make-result :ok scope findings nil))))
-        ;; Tool round (not submit_review) — continue looping
-        ((and (listp response) (plist-get response :tool-results))
-         (if (>= round hutch-max-tool-rounds)
-             (progn
-               (hutch--log "llm" "hit max tool rounds (%d) for %s"
-                           hutch-max-tool-rounds (plist-get scope :scope))
-               (funcall callback
-                        (hutch--make-error-result
-                         scope 'tool-loop
-                         (format "exceeded %d tool rounds"
-                                 hutch-max-tool-rounds))))
-           (hutch--log "llm" "tool round %d for %s, continuing..."
-                       (1+ round) (plist-get scope :scope))
-           (hutch--review-loop scope prompt callback (1+ round))))
-        ;; Text response — nudge and keep looping
-        (t
-         (if (>= round hutch-max-tool-rounds)
-             (progn
-               (hutch--log "llm" "hit max rounds (%d) with text for %s"
-                           hutch-max-tool-rounds (plist-get scope :scope))
-               (funcall callback
-                        (hutch--make-error-result
-                         scope 'no-submit
-                         "model never called submit_review")))
-           (hutch--log "llm" "text response round %d for %s, nudging..."
-                       (1+ round) (plist-get scope :scope))
-           (llm-chat-prompt-append-response prompt response 'assistant)
-           (llm-chat-prompt-append-response
-            prompt "You must call submit_review now. Do not respond with text.")
-           (hutch--review-loop scope prompt callback (1+ round))))))
-     (lambda (type msg)
-       (funcall callback (hutch--make-error-result scope type msg)))
-     t)))
+(defun hutch--agent-loop (prompt round on-done on-error result-box max-rounds)
+  "Generic async tool-use loop.
+Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure."
+  (llm-chat-async
+   hutch-provider
+   prompt
+   (lambda (response)
+     (cond
+      ;; got a result back, exit
+      ((hutch--result-box-get result-box)
+       (funcall on-done))
+
+      ;; not the final tool call (continue looping)
+      ((and (listp response) (plist-get response :tool-results))
+       (if (>= round max-rounds)
+           (funcall on-error 'tool-loop-exceeded "exceeded max tool rounds")
+         (hutch--agent-loop prompt
+                            (+ 1 round)
+                            on-done
+                            on-error
+                            result-box
+                            max-rounds)))
+
+      ;; nudge and keep looping (response is text)
+      (t
+       (if (>= round max-rounds)
+           (funcall on-error 'no-submit "model never called result tool")
+         (llm-chat-prompt-append-response prompt response 'assistant)
+         (llm-chat-prompt-append-response
+          prompt
+          "Do not respond with text. Use your tools to complete the task.")
+         (hutch--agent-loop prompt
+                            (+ 1 round)
+                            on-done
+                            on-error
+                            result-box
+                            max-rounds)))))
+   on-error
+   t))
+
+(defun hutch--review-on-done (scope result-box callback)
+  "Handle successful review for SCOPE. Read findings from RESULT-BOX, call CALLBACK."
+  (let ((findings (mapcar #'hutch--normalize-tool-finding
+                          (hutch--result-box-get result-box))))
+    (hutch--log "llm"
+                "submit_review received for %s: %d findings"
+                (plist-get scope :scope)
+                (length findings))
+    (funcall callback (hutch--make-result :ok scope findings nil))))
+
+(defun hutch--review-on-error (scope callback type msg)
+  "Handle review error for SCOPE. Call CALLBACK with error result from TYPE and MSG."
+  (funcall callback (hutch--make-error-result scope type msg)))
 
 (defun hutch-review-scope (scope callback)
   "Review SCOPE asynchronously with tool use. Call CALLBACK with a result plist."
   (unless hutch-provider (error "hutch-provider is not set"))
-  (hutch--review-loop scope (hutch--make-prompt scope) callback))
+  (let ((result-box (hutch--make-result-box)))
+    (hutch--agent-loop
+     (hutch--make-prompt scope result-box)
+     0
+     (lambda () (hutch--review-on-done scope result-box callback))
+     (lambda (type msg) (hutch--review-on-error scope callback type msg))
+     result-box
+     20)))
 
 (defun hutch-review (scopes callback)
   "Review SCOPES with caching. Call CALLBACK with each result plist as it arrives."
