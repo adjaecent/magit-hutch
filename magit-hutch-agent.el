@@ -1,5 +1,9 @@
 ;;; magit-hutch-agent.el --- LLM review agent -*- lexical-binding: t; -*-
 
+
+;;; Commentary:
+;;
+
 ;;; Code:
 
 (require 'llm)
@@ -28,7 +32,8 @@ One of nil, `none', `light', `medium', or `maximum'.")
   "Valid finding type symbols.")
 
 (defun hutch--make-finding (type file lines title desc patch)
-  "Create a finding plist of TYPE for FILE.
+  "Create a finding plist of TYPE for FILE with LINES and PATCH.
+Summarized with TITLE AND DESC.
 TYPE must be one of `hutch--valid-finding-types'."
   (unless (memq type hutch--valid-finding-types)
     (error "Invalid finding type %s, must be one of %s" type hutch--valid-finding-types))
@@ -42,7 +47,7 @@ TYPE must be one of `hutch--valid-finding-types'."
 ;;; --- Results ---
 
 (defun hutch--make-result (status scope findings emsg)
-  "Create a result plist with STATUS for SCOPE."
+  "Create a result plist with FINDINGS and STATUS for SCOPE."
   (list :status   status
         :scope    (plist-get scope :scope)
         :desc     (plist-get scope :desc)
@@ -61,7 +66,8 @@ TYPE must be one of `hutch--valid-finding-types'."
   "Maximum output tokens for the LLM review response.")
 
 (defun hutch--make-prompt (scope result-box)
-  "Build an llm-chat-prompt for SCOPE with tools attached."
+  "Build an llm-chat-prompt for SCOPE with tools attached.
+Pass a RESULT-BOX into the tools closure."
   (llm-make-chat-prompt
    (format hutch-review-template (plist-get scope :manifest))
    :context hutch-system-prompt
@@ -84,8 +90,9 @@ RAW is an alist with symbol keys (file, title, description, etc.)."
      (t (hutch--make-finding 'comment file lines title desc nil)))))
 
 (defun hutch--agent-loop (prompt round on-done on-error result-box max-rounds)
-  "Generic async tool-use loop.
-Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure."
+  "Generic async tool-use loop with PROMPT.
+Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure.
+Tracks ROUND recursively bounded by MAX_ROUNDS."
   (llm-chat-async
    hutch-provider
    prompt
@@ -124,7 +131,7 @@ Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure."
    t))
 
 (defun hutch--review-on-done (scope result-box callback)
-  "Handle successful review for SCOPE. Read findings from RESULT-BOX, call CALLBACK."
+  "Handle successful review for SCOPE.  Read findings from RESULT-BOX, call CALLBACK."
   (let ((findings (mapcar #'hutch--normalize-tool-finding
                           (hutch--result-box-get result-box))))
     (hutch--log "llm"
@@ -134,11 +141,11 @@ Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure."
     (funcall callback (hutch--make-result :ok scope findings nil))))
 
 (defun hutch--review-on-error (scope callback type msg)
-  "Handle review error for SCOPE. Call CALLBACK with error result from TYPE and MSG."
+  "Handle review error for SCOPE.  Call CALLBACK with error result from TYPE and MSG."
   (funcall callback (hutch--make-error-result scope type msg)))
 
 (defun hutch-review-scope (scope callback)
-  "Review SCOPE asynchronously with tool use. Call CALLBACK with a result plist."
+  "Review SCOPE asynchronously with tool use.  Call CALLBACK with a result plist."
   (unless hutch-provider (error "hutch-provider is not set"))
   (let ((result-box (hutch--make-result-box)))
     (hutch--agent-loop
@@ -150,7 +157,7 @@ Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure."
      20)))
 
 (defun hutch-review (scopes callback)
-  "Review SCOPES with caching. Call CALLBACK with each result plist as it arrives."
+  "Review SCOPES with caching.  Call CALLBACK with each result plist as it arrives."
   (hutch--log "review" "found %d scopes" (length scopes))
   (dolist (scope scopes)
     (let ((hash (plist-get scope :hash))

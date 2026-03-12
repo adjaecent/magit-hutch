@@ -1,5 +1,9 @@
 ;;; magit-hutch-git.el --- Git helpers, scopes, and diff collection -*- lexical-binding: t; -*-
 
+
+;;; Commentary:
+;;
+
 ;;; Code:
 
 (require 'magit)
@@ -53,14 +57,14 @@ SCOPE must be one of `hutch--valid-scopes'."
   (seq-find #'magit-branch-p hutch--default-branch-names))
 
 (defun hutch--default-branch ()
-  "Return the default branch name. Tries origin/HEAD, then common names."
+  "Return the default branch name.  Try origin/HEAD, then common names."
   (or (hutch--default-remote-ref)
       (hutch--default-common-ref)))
 
 ;;; --- Diff collection ---
 
 (defun hutch--git-diff-numstat (&rest args)
-  "Run git diff --numstat with ARGS. Return formatted manifest string or nil."
+  "Run git diff --numstat with ARGS.  Return formatted manifest string or nil."
   (let* ((output (with-temp-buffer
                    (apply #'magit-git-insert "diff" "--numstat" args)
                    (buffer-string)))
@@ -111,7 +115,7 @@ Returns the diff string or nil if empty."
     (hutch--make-scope :staged nil nil diff)))
 
 (defun hutch-collect-scopes ()
-  "Collect all available scopes. Returns a list of scope plists."
+  "Collect all available scopes.  Return a list of scope plists."
   (seq-filter #'identity
               (list (hutch--collect-branch)
                     (hutch--collect-unpushed)

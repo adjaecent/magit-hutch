@@ -69,26 +69,26 @@
                   'font-lock-face 'magit-diff-file-heading))))
 
 (defun hutch--insert-suggestion (finding)
-  "Insert a suggestion section (has a patch)."
+  "Insert a FINDING suggestion section (has a patch)."
   (magit-insert-section (review-suggestion finding t)
     (magit-insert-heading
       (propertize (format "  %s:%s -- %s"
                           (plist-get finding :file)
                           (plist-get finding :lines)
                           (plist-get finding :title))
-                  'font-lock-face 'magit-diff-hunk-heading))
+                  'font-lock-face 'magit-diff-file-heading))
     (hutch--insert-desc (plist-get finding :desc))
     (hutch--insert-patch-lines (plist-get finding :patch))))
 
 (defun hutch--insert-comment (finding)
-  "Insert a comment section (no patch). Press `x' to dismiss."
+  "Insert a FINDING:comment section (no patch).  Press `x' to dismiss."
   (magit-insert-section (review-comment finding t)
     (magit-insert-heading
       (propertize (format "  %s:%s -- %s"
                           (plist-get finding :file)
                           (plist-get finding :lines)
                           (plist-get finding :title))
-                  'font-lock-face 'magit-diff-hunk-heading))
+                  'font-lock-face 'magit-diff-file-heading))
     (hutch--insert-desc (plist-get finding :desc))))
 
 (defun hutch--insert-finding (finding)
@@ -112,7 +112,7 @@
 ;;; --- Accept / reject ---
 
 (defun hutch--git-apply-check (patch directory)
-  "Dry-run PATCH with git apply --check in DIRECTORY. Return t if clean."
+  "Dry-run PATCH with git apply --check in DIRECTORY.  Return t if clean."
   (let ((default-directory directory))
     (zerop (with-temp-buffer
              (insert patch "\n")
@@ -177,7 +177,7 @@
   (format "%s %s" (plist-get scope :scope) (plist-get scope :desc)))
 
 (defun hutch--setup-buffer ()
-  "Create and prepare the review buffer. Return it."
+  "Create and prepare the review buffer.  Return it."
   (let ((buf (get-buffer-create "*magit-hutch: code review*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -217,7 +217,7 @@
 
 ;;;###autoload
 (defun hutch-magit-review ()
-  "Review changes with AI. Shows sections for branch, unpushed, and staged diffs."
+  "Review change with AI.  Show sections for branch, unpushed, and staged diffs."
   (interactive)
   (let ((scopes (hutch-collect-scopes)))
     (if (null scopes)

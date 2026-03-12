@@ -1,5 +1,9 @@
 ;;; magit-hutch-prompts.el --- Prompts and examples -*- lexical-binding: t; -*-
 
+
+;;; Commentary:
+;;
+
 ;;; Code:
 
 ;;; --- Prompts ---
@@ -62,7 +66,7 @@ Example 2 (insertion):
 
 Keep titles and descriptions concise. Do not repeat yourself.
 If a file is clean, include: {file: \"path\", lgtm: true}"
-  "Prompt template for hutch review. Expects a single %s for the manifest.")
+  "Prompt template for hutch review.  Expects a single %s for the manifest.")
 
 (provide 'magit-hutch-prompts)
 

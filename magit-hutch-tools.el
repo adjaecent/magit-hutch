@@ -1,5 +1,9 @@
 ;;; magit-hutch-tools.el --- Tool functions for the review agent -*- lexical-binding: t; -*-
 
+
+;;; Commentary:
+;;
+
 ;;; Code:
 
 (require 'magit)
@@ -11,7 +15,7 @@
 ;;; --- Tool functions ---
 
 (defun hutch--tool-search-codebase (pattern &optional file-glob)
-  "Search the codebase for PATTERN using git grep. Optionally filter by FILE-GLOB."
+  "Search the codebase for PATTERN using git grep.  Optionally filter by FILE-GLOB."
   (let ((default-directory (magit-toplevel)))
     (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
     (let ((result (with-temp-buffer
@@ -22,7 +26,7 @@
       (if (string-empty-p result) "No matches found." result))))
 
 (defun hutch--tool-read-file (path &optional start-line end-line)
-  "Read PATH relative to repo root. Optionally restrict to START-LINE..END-LINE."
+  "Read PATH relative to repo root.  Optionally restrict to START-LINE..END-LINE."
   (let* ((default-directory (magit-toplevel))
          (full-path (expand-file-name path default-directory)))
     (hutch--log "tool" "read_file: %s [%s-%s]" path
@@ -39,7 +43,7 @@
           (string-join slice "\n"))))))
 
 (defun hutch--tool-git-log (path &optional max-count)
-  "Show commit history for PATH. Returns up to MAX-COUNT entries (default 10)."
+  "Show commit history for PATH.  Return up to MAX-COUNT entries (default 10)."
   (let ((default-directory (magit-toplevel))
         (n (number-to-string (or max-count 10))))
     (hutch--log "tool" "git_log: %s (max %s)" path n)
@@ -51,7 +55,7 @@
       (if (string-empty-p result) "No history found." result))))
 
 (defun hutch--tool-git-blame (path &optional start-line end-line)
-  "Show git blame for PATH. Optionally restrict to START-LINE..END-LINE."
+  "Show git blame for PATH.  Optionally restrict to START-LINE..END-LINE."
   (let ((default-directory (magit-toplevel)))
     (hutch--log "tool" "git_blame: %s [%s-%s]" path
                 (or start-line "1") (or end-line "end"))

@@ -55,13 +55,13 @@
          (text (treesit-node-text def)))
     (format "Lines %d-%d:\n%s"
             start-line
-            (+ start-line (length (split-string text "\n" t)) -1)
+            (+ start-line (length (split-string text "\n")) -1)
             text)))
 
 (defun treesit-context--enclosing-parents (node parents found max-depth)
   "Walk up from NODE collecting parents definitions into PARENTS.
-FOUND tracks how many definitions collected so far. Stop at MAX-DEPTH.
-Returns parents in outermost-first order. `nreverse` to fetch it innermost-first."
+FOUND tracks how many definitions collected so far.  Stop at MAX-DEPTH.
+Returns parents in outermost-first order.  `nreverse` to fetch it innermost-first."
   (cond
    ((or (null node) (>= found max-depth))
     parents)
