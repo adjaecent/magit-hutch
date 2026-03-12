@@ -33,14 +33,8 @@ From any magit buffer, press =d R= to run a review on your changes.
 
 ** Roadmap
 
-*** Review caching
-Store diff checksums in =.git/hutch-review-cache= to skip re-running reviews when the diff hasn't changed (sha256 per section). Subsequent sessions without changes don't re-run the review.
-
 *** Persistent reviews
 Persist reviews under =refs/hutch/<branch>= with a session id at commit time. Past review findings are fed back as context: the model sees "last review flagged X in this file, author accepted/rejected it." This prevents re-flagging dismissed issues, catches recurring patterns, and detects whether previous suggestions were actually addressed.
-
-*** Tree-sitter tools
-Expose tree-sitter as a tool so the agent can query ASTs: find function boundaries, list callers, extract type signatures, etc.
 
 *** Context graph
 A dependency graph of the codebase built lazily as the agent explores. Nodes are files/functions with content hashes, edges are relationships (calls, imports, tests). Used for three things: fetching relevant context (walk forward edges), invalidating stale cache (walk reverse edges), and grouping related files for joint review (connected components). Persisted to =refs/hutch/<branch>= between runs.
@@ -51,14 +45,8 @@ Instead of hardcoding every tool, expose primitives (git, tree-sitter, file I/O)
 *** RLM-style agent loop
 The model doesn't get the full codebase in its prompt. It gets the diff summary and a set of tools, then decides what to look at. It calls =search_codebase=, reads the result, decides it needs more, calls =read_file=, and so on in a loop until it has enough context to produce findings. The model controls the retrieval strategy, not the code.
 
-*** Diff manifest instead of full diffs
-Send a list of changed files/hunks as a manifest and let the LLM use tools to read specific diffs on demand. Reduces context usage for large changesets.
-
 *** Batch apply with invalidation graph
 Mark suggestions for accept (instead of immediate apply), then bulk-apply all marked patches bottom-to-top within each file so line numbers don't shift. Track an invalidation graph: overlapping/adjacent patches in the same file are connected, applying one flags others as stale.
-
-*** Fix global state race in submit_review
-=hutch--submitted-findings= is global. Concurrent scope reviews can overwrite each other's findings. Use a per-scope callback or closure to capture findings instead.
 
 ** LLM-usage disclosure
 
