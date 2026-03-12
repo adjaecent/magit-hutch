@@ -55,17 +55,6 @@
                                   (hutch--diff-line-face line))))))
   (insert "\n"))
 
-(defun hutch--wrap-text (text width prefix)
-  "Wrap TEXT to WIDTH, prefixing each line with PREFIX."
-  (with-temp-buffer
-    (insert text)
-    (let ((fill-column (- width (length prefix)))
-          (fill-prefix prefix))
-      (fill-region (point-min) (point-max))
-      (goto-char (point-min))
-      (insert prefix)
-      (buffer-string))))
-
 (defun hutch--insert-desc (desc)
   "Insert DESC wrapped to 80 chars with 4-space indent."
   (insert (hutch--wrap-text desc 80 "    ") "\n"))

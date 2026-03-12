@@ -58,7 +58,7 @@ FMT and ARGS are passed to `format'."
 ;;; --- Reload ---
 
 (defconst hutch--source-directory
-  (file-name-directory (or load-file-name buffer-file-name))
+  (file-name-directory (or load-file-name buffer-file-name default-directory))
   "Directory where magit-hutch source files live.")
 
 (defun hutch-reload ()
