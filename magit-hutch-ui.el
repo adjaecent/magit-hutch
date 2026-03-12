@@ -221,7 +221,7 @@
   (interactive)
   (let ((scopes (hutch-collect-scopes)))
     (if (null scopes)
-        (message "hutch: no changes to review")
+        (message "Hutch: no changes to review")
       (let ((buf (hutch--setup-buffer)))
         (with-current-buffer buf
           (setq hutch--scopes scopes

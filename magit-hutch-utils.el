@@ -70,7 +70,7 @@ FMT and ARGS are passed to `format'."
   (mapc #'load-file
         (file-expand-wildcards
          (expand-file-name "*.el" hutch--source-directory)))
-  (message "hutch: reloaded from %s" hutch--source-directory))
+  (message "Hutch: reloaded from %s" hutch--source-directory))
 
 (provide 'magit-hutch-utils)
 
