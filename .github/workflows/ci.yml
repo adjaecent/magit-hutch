@@ -18,9 +18,4 @@ jobs:
       - uses: leotaku/elisp-check@master
         with:
           check: checkdoc
-          file: magit-hutch.el
-
-      - uses: leotaku/elisp-check@master
-        with:
-          check: checkdoc
-          file: treesit-context.el
+          file: '[!.]*.el'

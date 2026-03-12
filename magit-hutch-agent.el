@@ -1,6 +1,5 @@
 ;;; magit-hutch-agent.el --- LLM review agent -*- lexical-binding: t; -*-
 
-
 ;;; Commentary:
 ;;
 

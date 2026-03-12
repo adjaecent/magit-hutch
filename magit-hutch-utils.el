@@ -1,5 +1,8 @@
 ;;; magit-hutch-utils.el --- Utility functions -*- lexical-binding: t; -*-
 
+;;; Commentary:
+;;
+
 ;;; Code:
 
 ;;; --- Result box ---
