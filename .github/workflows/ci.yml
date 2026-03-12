@@ -1,0 +1,26 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs-version: ['29.4']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs-version }}
+
+      - uses: leotaku/elisp-check@master
+        with:
+          check: checkdoc
+          file: magit-hutch.el
+
+      - uses: leotaku/elisp-check@master
+        with:
+          check: checkdoc
+          file: treesit-context.el
