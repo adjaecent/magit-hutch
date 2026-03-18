@@ -1,4 +1,4 @@
-;;; treesit-context.el --- Find enclosing definitions with tree-sitter -*- lexical-binding: t; -*-
+;;; magit-hutch-treesit.el --- Find enclosing definitions with tree-sitter -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -9,14 +9,14 @@
 
 (require 'treesit)
 
-(defvar treesit-context-lang-alist
+(defvar hutch--treesit-lang-alist
   '(("el" . elisp) ("py" . python) ("rb" . ruby) ("rs" . rust)
     ("js" . javascript) ("ts" . typescript) ("tsx" . tsx)
     ("go" . go) ("java" . java) ("c" . c) ("cpp" . cpp)
     ("clj" . clojure) ("ex" . elixir) ("exs" . elixir))
   "Map file extensions to tree-sitter language symbols.")
 
-(defvar treesit-context-definition-types
+(defvar hutch--treesit-definition-types
   '(;; Common
     "function_definition" "function_declaration"
     "method_definition" "method_declaration"
@@ -44,12 +44,12 @@
     "list_lit")
   "Tree-sitter node types that represent definitions.")
 
-(defun treesit-context-lang-for-file (path)
+(defun hutch--treesit-lang-for-file (path)
   "Return the tree-sitter language symbol for PATH, or nil."
   (let ((ext (file-name-extension path)))
-    (alist-get ext treesit-context-lang-alist nil nil #'equal)))
+    (alist-get ext hutch--treesit-lang-alist nil nil #'equal)))
 
-(defun treesit-context--format-node (def)
+(defun hutch--treesit-format-node (def)
   "Format a definition node DEF as \"Lines N-M:\\ntext\"."
   (let* ((start-line (line-number-at-pos (treesit-node-start def)))
          (text (treesit-node-text def)))
@@ -58,7 +58,7 @@
             (+ start-line (length (split-string text "\n")) -1)
             text)))
 
-(defun treesit-context--enclosing-parents (node parents found max-depth)
+(defun hutch--treesit-enclosing-parents (node parents found max-depth)
   "Walk up from NODE collecting parents definitions into PARENTS.
 FOUND tracks how many definitions collected so far.  Stop at MAX-DEPTH.
 Returns parents in outermost-first order.  `nreverse` to fetch it innermost-first."
@@ -66,21 +66,21 @@ Returns parents in outermost-first order.  `nreverse` to fetch it innermost-firs
    ((or (null node) (>= found max-depth))
     parents)
 
-   ((member (treesit-node-type node) treesit-context-definition-types)
-    (treesit-context--enclosing-parents
+   ((member (treesit-node-type node) hutch--treesit-definition-types)
+    (hutch--treesit-enclosing-parents
      (treesit-node-parent node)
      (cons node parents)
      (+ found 1)
      max-depth))
 
    (t
-    (treesit-context--enclosing-parents
+    (hutch--treesit-enclosing-parents
      (treesit-node-parent node)
      parents
      found
      max-depth))))
 
-(defun treesit-context-enclosing-definition (lang full-path line &optional depth)
+(defun hutch--treesit-enclosing-definition (lang full-path line &optional depth)
   "Find enclosing definitions at LINE in FULL-PATH for LANG.
 Returns up to DEPTH definitions (default 1).
 Returns nil if none found."
@@ -94,10 +94,10 @@ Returns nil if none found."
                     (point)))
              (node (treesit-node-at pos))
              (defs (nreverse
-                    (treesit-context--enclosing-parents node nil 0 (min (or depth 1) 10)))))
+                    (hutch--treesit-enclosing-parents node nil 0 (min (or depth 1) 10)))))
         (when defs
-          (mapconcat #'treesit-context--format-node defs "\n\n"))))))
+          (mapconcat #'hutch--treesit-format-node defs "\n\n"))))))
 
-(provide 'treesit-context)
+(provide 'magit-hutch-treesit)
 
-;;; treesit-context.el ends here
+;;; magit-hutch-treesit.el ends here

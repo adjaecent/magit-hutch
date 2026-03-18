@@ -43,6 +43,10 @@ For each finding, provide:
 
 Patch format — must be valid for `git apply`. Do NOT invent your own format.
 
+CRITICAL: The @@ line numbers MUST match the actual diff you read from read_diff. \
+Copy the hunk header and surrounding context lines exactly from the diff output. \
+Do NOT guess or recompute line numbers — wrong numbers cause the patch to fail.
+
 Example 1 (line change):
 ```
 --- a/src/foo.el
@@ -63,6 +67,8 @@ Example 2 (insertion):
 +  (when (zerop b) (error \"Division by zero\"))
    (/ a b))
 ```
+
+The context lines (lines starting with a space) must match the file exactly.
 
 Keep titles and descriptions concise. Do not repeat yourself.
 If a file is clean, include: {file: \"path\", lgtm: true}"

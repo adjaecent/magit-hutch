@@ -10,7 +10,7 @@
 (require 'llm)
 (require 'magit-hutch-utils)
 (require 'magit-hutch-git)
-(require 'treesit-context)
+(require 'magit-hutch-treesit)
 
 ;;; --- Tool functions ---
 
@@ -78,10 +78,10 @@ Returns up to DEPTH levels (default 1), innermost first."
     (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
     (if (not (file-exists-p full-path))
         (format "File not found: %s" path)
-      (let ((lang (treesit-context-lang-for-file path)))
+      (let ((lang (hutch--treesit-lang-for-file path)))
         (if (null lang)
             (format "No tree-sitter grammar for %s" (file-name-extension path))
-          (or (treesit-context-enclosing-definition lang full-path line depth)
+          (or (hutch--treesit-enclosing-definition lang full-path line depth)
               (format "No enclosing definition found at %s:%d" path line)))))))
 
 ;;; --- Read diff ---

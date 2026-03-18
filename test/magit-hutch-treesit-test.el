@@ -1,4 +1,4 @@
-;;; surrounding-context-test.el --- Test tree-sitter enclosing definitions -*- lexical-binding: t; -*-
+;;; magit-hutch-treesit-test.el --- Test tree-sitter enclosing definitions -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -8,7 +8,7 @@
                   (directory-file-name
                    (file-name-directory load-file-name)))))
   (add-to-list 'load-path hutch-dir)
-  (require 'treesit-context))
+  (require 'magit-hutch-treesit))
 
 (defvar sct--fixtures-dir
   (expand-file-name "fixtures"
@@ -21,7 +21,7 @@
 
 (defun sct--result (lang file line)
   "Run enclosing definition lookup for LANG on FILE at LINE."
-  (treesit-context-enclosing-definition lang (sct--fixture file) line))
+  (hutch--treesit-enclosing-definition lang (sct--fixture file) line))
 
 (defun sct--assert-contains (result expected-substring)
   "Assert RESULT is non-nil and contains EXPECTED-SUBSTRING."
