@@ -9,12 +9,14 @@
 
 (require 'magit-hutch-agent)
 (require 'magit-section)
+(require 'svg-lib)
 
 ;;; --- Mode and keymaps ---
 
 (defvar-keymap hutch-mode-map
-  :parent magit-section-mode-map
-  "q" #'quit-window)
+  :parent   magit-section-mode-map
+  "q"       #'quit-window
+  "C-c C-k" #'hutch-cancel-review)
 
 (define-derived-mode hutch-mode magit-section-mode "Hutch"
   "Major mode for displaying hutch code review results."
@@ -31,6 +33,19 @@
   "x" #'hutch-suggestion-reject)
 
 ;;; --- Display helpers ---
+
+(defun hutch--badge (label face)
+  "Return an SVG badge image for LABEL styled with FACE foreground."
+  (svg-lib-tag label nil
+                 :padding 1
+                 :radius 2
+                 :font-size 14
+                 :foreground (face-foreground face nil t)
+                 :background (face-background face nil t)))
+
+(defun hutch--badge-image (label face)
+  "Return a propertized space displaying an SVG badge for LABEL."
+  (propertize " " 'display (hutch--badge label face)))
 
 (defun hutch--diff-line-face (line)
   "Return the face for a diff LINE based on its prefix."
@@ -61,22 +76,36 @@
 
 ;;; --- Section inserters ---
 
+(defface hutch-badge-suggestion
+  '((t :foreground "#ffffff" :background "#e06c75"))
+  "Face for suggestion badges.")
+
+(defface hutch-badge-comment
+  '((t :foreground "#ffffff" :background "#61afef"))
+  "Face for comment badges.")
+
+(defface hutch-badge-lgtm
+  '((t :foreground "#ffffff" :background "#98c379"))
+  "Face for lgtm badges.")
+
 (defun hutch--insert-lgtm (finding)
   "Insert a LGTM section for FINDING."
   (magit-insert-section (review-lgtm (plist-get finding :file))
     (magit-insert-heading
-      (propertize (format "  LGTM %s" (plist-get finding :file))
-                  'font-lock-face 'magit-diff-file-heading))))
+      (concat (hutch--badge-image "LGTM" 'hutch-badge-lgtm)
+              (propertize (format " %s" (plist-get finding :file))
+                          'font-lock-face 'magit-diff-file-heading)))))
 
 (defun hutch--insert-suggestion (finding)
   "Insert a FINDING suggestion section (has a patch)."
   (magit-insert-section (review-suggestion finding t)
     (magit-insert-heading
-      (propertize (format "  %s:%s -- %s"
-                          (plist-get finding :file)
-                          (plist-get finding :lines)
-                          (plist-get finding :title))
-                  'font-lock-face 'magit-diff-file-heading))
+      (concat (hutch--badge-image "SUGGESTION" 'hutch-badge-suggestion)
+              (propertize (format " %s:%s -- %s"
+                                  (plist-get finding :file)
+                                  (plist-get finding :lines)
+                                  (plist-get finding :title))
+                          'font-lock-face 'magit-diff-file-heading)))
     (hutch--insert-desc (plist-get finding :desc))
     (hutch--insert-patch-lines (plist-get finding :patch))))
 
@@ -84,11 +113,12 @@
   "Insert a FINDING:comment section (no patch).  Press `x' to dismiss."
   (magit-insert-section (review-comment finding t)
     (magit-insert-heading
-      (propertize (format "  %s:%s -- %s"
-                          (plist-get finding :file)
-                          (plist-get finding :lines)
-                          (plist-get finding :title))
-                  'font-lock-face 'magit-diff-file-heading))
+      (concat (hutch--badge-image "COMMENT" 'hutch-badge-comment)
+              (propertize (format " %s:%s -- %s"
+                                  (plist-get finding :file)
+                                  (plist-get finding :lines)
+                                  (plist-get finding :title))
+                          'font-lock-face 'magit-diff-file-heading)))
     (hutch--insert-desc (plist-get finding :desc))))
 
 (defun hutch--insert-finding (finding)
@@ -98,13 +128,17 @@
     ('suggestion (hutch--insert-suggestion finding))
     ('comment    (hutch--insert-comment finding))))
 
-(defun hutch--insert-findings (findings section-label)
-  "Insert FINDINGS as magit sections under SECTION-LABEL."
+(defun hutch--insert-findings (findings display-label section-label result)
+  "Insert FINDINGS under DISPLAY-LABEL heading, keyed by SECTION-LABEL."
   (magit-insert-section (review-group section-label)
     (magit-insert-heading
-      (propertize section-label 'font-lock-face 'magit-section-heading))
+      (propertize display-label 'font-lock-face 'magit-section-heading)
+      " "
+      (or (when-let ((tokens (hutch--format-tokens result)))
+            (hutch--badge-image tokens 'hutch-badge-tokens))
+          ""))
     (if (null findings)
-        (insert "  No issues found.\n")
+        (insert "No issues found.")
       (dolist (finding findings)
         (hutch--insert-finding finding)))
     (insert "\n")))
@@ -118,7 +152,7 @@
              (insert patch "\n")
              (call-process-region (point-min) (point-max)
                                   "git" nil t nil
-                                  "apply" "--check" "-")))))
+                                  "apply" "--check --cached" "-")))))
 
 (defun hutch--git-apply (patch directory)
   "Apply PATCH with git apply in DIRECTORY."
@@ -127,7 +161,7 @@
       (insert patch "\n")
       (call-process-region (point-min) (point-max)
                            "git" nil t nil
-                           "apply" "-"))))
+                           "apply" "--index" "-"))))
 
 (defun hutch--revert-file-buffer (file directory)
   "Revert the buffer visiting FILE under DIRECTORY, if any."
@@ -171,10 +205,58 @@
 
 (defvar-local hutch--scopes nil "Scopes being reviewed.")
 (defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
+(defvar-local hutch--cancel-fns nil "List of cancel functions for in-progress reviews.")
+
+(defface hutch-badge-tokens
+  '((t :foreground "#888888" :background "#2d2d2d"))
+  "Face for token count badges.")
+
+(defun hutch-cancel-review ()
+  "Cancel all in-progress reviews."
+  (interactive)
+  (mapc #'funcall hutch--cancel-fns)
+  (setq hutch--cancel-fns nil)
+  (message "Hutch: review(s) cancelled."))
 
 (defun hutch--scope-label (scope)
-  "Return the display label for SCOPE."
+  "Return a stable key for SCOPE used in result lookups."
   (format "%s %s" (plist-get scope :scope) (plist-get scope :desc)))
+
+(defun hutch--format-tokens (result)
+  "Format token counts from RESULT as \"R12k/W3k\" or nil if unavailable."
+  (let ((in  (plist-get result :input-tokens))
+        (out (plist-get result :output-tokens)))
+    (when (or in out)
+      (format "R%dk / W%dk"
+              (/ (or in 0) 1000)
+              (/ (or out 0) 1000)))))
+
+(defun hutch--scope-name (scope)
+  "Return the human-readable name for SCOPE."
+  (let ((key (plist-get scope :scope))
+        (desc (plist-get scope :desc)))
+    (pcase key
+      (:staged   "staged changes")
+      (:unpushed "unpushed commits")
+      (:branch   (format "branch %s" desc))
+      (_         (format "%s %s" key desc)))))
+
+(defun hutch--scope-emoji (scope)
+  "Return the emoji for SCOPE."
+  (pcase (plist-get scope :scope)
+    (:staged   "📦")
+    (:unpushed "⬆️")
+    (:branch   "🌿")
+    (_         "📋")))
+
+(defun hutch--scope-display-label (scope &optional result)
+  "Return a display heading for SCOPE with stats from RESULT."
+  (let* ((findings (plist-get result :findings))
+         (n (when findings (length findings))))
+    (concat (hutch--scope-emoji scope)
+            " "
+            (hutch--scope-name scope)
+            (when n (format " (%d)" n)))))
 
 (defun hutch--setup-buffer ()
   "Create and prepare the review buffer.  Return it."
@@ -197,16 +279,21 @@
         (dolist (scope hutch--scopes)
           (let* ((label (hutch--scope-label scope))
                  (entry (assoc label hutch--results #'equal))
-                 (result (cdr entry)))
+                 (result (cdr entry))
+                 (findings (plist-get result :findings))
+                 (display (hutch--scope-display-label scope result)))
             (cond
              ((null result)
-              (insert (format "  Reviewing: %s...\n" (downcase label))))
+              (insert (format "%s Reviewing %s...\n"
+                              (hutch--scope-emoji scope)
+                              (hutch--scope-name scope))))
              ((eq (plist-get result :status) :error)
-              (insert (format "  Review failed: %s\n"
+              (insert (format "%s Reviewing %s — failed: %s\n\n"
+                              (hutch--scope-emoji scope)
+                              (hutch--scope-display-label scope)
                               (plist-get result :emsg))))
              (t
-              (hutch--insert-findings
-               (plist-get result :findings) label)))))))))
+              (hutch--insert-findings findings display label result)))))))))
 
 (defun hutch--render-result (buf result)
   "Store RESULT and re-render BUF."
@@ -228,9 +315,8 @@
                 hutch--results nil))
         (hutch--render-buffer buf)
         (pop-to-buffer buf)
-        (hutch-review scopes
-                      (lambda (result)
-                        (hutch--render-result buf result)))))))
+        (setq hutch--cancel-fns
+              (hutch--review scopes (lambda (result) (hutch--render-result buf result))))))))
 
 (provide 'magit-hutch-ui)
 
