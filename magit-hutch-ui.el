@@ -36,16 +36,20 @@
 
 (defun hutch--badge (label face)
   "Return an SVG badge image for LABEL styled with FACE foreground."
-  (svg-lib-tag label nil
-                 :padding 1
-                 :radius 2
-                 :font-size 14
-                 :foreground (face-foreground face nil t)
-                 :background (face-background face nil t)))
+  (svg-lib-tag label
+               nil
+               :padding 1
+               :radius 2
+               :font-size 14
+               :foreground (face-foreground face nil t)
+               :background (face-background face nil t)))
 
 (defun hutch--badge-image (label face)
-  "Return a propertized space displaying an SVG badge for LABEL."
-  (propertize " " 'display (hutch--badge label face)))
+  "Return a propertized string displaying an SVG badge for LABEL.
+Prefix with an invisible zero-width character to make it play well with transient hiding."
+  (concat "\u200b"
+          (propertize " "
+                      'display (hutch--badge label face))))
 
 (defun hutch--diff-line-face (line)
   "Return the face for a diff LINE based on its prefix."
@@ -65,9 +69,13 @@
   (insert "\n")
   (dolist (line (split-string patch "\n"))
     (unless (hutch--diff-header-p line)
-      (insert (format "    %s\n"
-                      (propertize line 'font-lock-face
-                                  (hutch--diff-line-face line))))))
+      (let ((face (hutch--diff-line-face line))
+            (beg  (point)))
+        (insert (format "    %s\n" line))
+        (unless (eq face 'default)
+          (let ((ov (make-overlay beg (point))))
+            (overlay-put ov 'face face)
+            (overlay-put ov 'priority 10))))))
   (insert "\n"))
 
 (defun hutch--insert-desc (desc)
@@ -92,20 +100,20 @@
   "Insert a LGTM section for FINDING."
   (magit-insert-section (review-lgtm (plist-get finding :file))
     (magit-insert-heading
-      (concat (hutch--badge-image "LGTM" 'hutch-badge-lgtm)
-              (propertize (format " %s" (plist-get finding :file))
-                          'font-lock-face 'magit-diff-file-heading)))))
+      (hutch--badge-image "LGTM" 'hutch-badge-lgtm)
+      (propertize (format " %s" (plist-get finding :file))
+                  'font-lock-face 'magit-diff-file-heading))))
 
 (defun hutch--insert-suggestion (finding)
   "Insert a FINDING suggestion section (has a patch)."
   (magit-insert-section (review-suggestion finding t)
     (magit-insert-heading
-      (concat (hutch--badge-image "SUGGESTION" 'hutch-badge-suggestion)
-              (propertize (format " %s:%s -- %s"
-                                  (plist-get finding :file)
-                                  (plist-get finding :lines)
-                                  (plist-get finding :title))
-                          'font-lock-face 'magit-diff-file-heading)))
+      (hutch--badge-image "SUGGESTION" 'hutch-badge-suggestion)
+      (propertize (format " %s:%s -- %s"
+                          (plist-get finding :file)
+                          (plist-get finding :lines)
+                          (plist-get finding :title))
+                  'font-lock-face 'magit-diff-file-heading))
     (hutch--insert-desc (plist-get finding :desc))
     (hutch--insert-patch-lines (plist-get finding :patch))))
 
@@ -113,12 +121,12 @@
   "Insert a FINDING:comment section (no patch).  Press `x' to dismiss."
   (magit-insert-section (review-comment finding t)
     (magit-insert-heading
-      (concat (hutch--badge-image "COMMENT" 'hutch-badge-comment)
-              (propertize (format " %s:%s -- %s"
-                                  (plist-get finding :file)
-                                  (plist-get finding :lines)
-                                  (plist-get finding :title))
-                          'font-lock-face 'magit-diff-file-heading)))
+      (hutch--badge-image "COMMENT" 'hutch-badge-comment)
+      (propertize (format " %s:%s -- %s"
+                          (plist-get finding :file)
+                          (plist-get finding :lines)
+                          (plist-get finding :title))
+                  'font-lock-face 'magit-diff-file-heading))
     (hutch--insert-desc (plist-get finding :desc))))
 
 (defun hutch--insert-finding (finding)
@@ -152,7 +160,7 @@
              (insert patch "\n")
              (call-process-region (point-min) (point-max)
                                   "git" nil t nil
-                                  "apply" "--check --cached" "-")))))
+                                  "apply" "--check" "--cached" "-")))))
 
 (defun hutch--git-apply (patch directory)
   "Apply PATCH with git apply in DIRECTORY."
@@ -227,9 +235,9 @@
   (let ((in  (plist-get result :input-tokens))
         (out (plist-get result :output-tokens)))
     (when (or in out)
-      (format "R%dk / W%dk"
-              (/ (or in 0) 1000)
-              (/ (or out 0) 1000)))))
+      (format "R%.1fk / W%.1fk"
+              (/ (or in 0) 1000.0)
+              (/ (or out 0) 1000.0)))))
 
 (defun hutch--scope-name (scope)
   "Return the human-readable name for SCOPE."
@@ -290,7 +298,7 @@
              ((eq (plist-get result :status) :error)
               (insert (format "%s Reviewing %s — failed: %s\n\n"
                               (hutch--scope-emoji scope)
-                              (hutch--scope-display-label scope)
+                              (hutch--scope-name scope)
                               (plist-get result :emsg))))
              (t
               (hutch--insert-findings findings display label result)))))))))
