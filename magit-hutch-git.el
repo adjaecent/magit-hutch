@@ -147,7 +147,7 @@ Return the output of git blame"
   "Collect all available scopes.  Return a list of scope plists."
   (seq-filter #'identity
               (list (hutch--collect-branch)
-                    (hutch--collect-unpushed)
+                    ;; (hutch--collect-unpushed)
                     (hutch--collect-staged))))
 
 (provide 'magit-hutch-git)

@@ -7,7 +7,7 @@
 ;;; Code:
 
 (require 'magit)
-(require 'llm)
+(require 'gptel-request)
 (require 'magit-hutch-utils)
 (require 'magit-hutch-git)
 (require 'magit-hutch-treesit)
@@ -35,8 +35,7 @@
   (with-cur-dir
    root
    (let ((full-path (expand-file-name path default-directory)))
-     (hutch--log "tool" "read_file: %s [%s-%s]" path
-                 (or start-line "1") (or end-line "end"))
+     (hutch--log "tool" "read_file: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
      (if (not (file-exists-p full-path))
          (format "File not found: %s" path)
        (with-temp-buffer
@@ -54,17 +53,17 @@
    root
    (let* ((n (number-to-string (or max-count 10)))
           (result (hutch--git-log path n)))
-     (hutch--log "tool" "git_log: %s (max %s)" path n)
-     (hutch--log "tool" "git_log: %d chars returned" (length result))
+     (hutch--log "tool" "git_log: %s (max %s), %d chars returned" path n (length result))
      (if (string-empty-p result) "No history found." result))))
 
 (defun hutch--tool-git-blame (root path &optional start-line end-line)
   "Show git blame for PATH.  Optionally restrict to START-LINE..END-LINE."
-  (with-cur-dir root
-                (hutch--log "tool" "git_blame: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
-                (let ((result (hutch--git-blame path start-line end-line)))
-                  (hutch--log "tool" "git_blame: %d chars returned" (length result))
-                  (if (string-empty-p result) "No blame data found." result))))
+  (with-cur-dir
+   root
+   (hutch--log "tool" "git_blame: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
+   (let ((result (hutch--git-blame path start-line end-line)))
+     (hutch--log "tool" "git_blame: %d chars returned" (length result))
+     (if (string-empty-p result) "No blame data found." result))))
 
 (defun hutch--tool-verify-patch-for-scope (root scope patch)
   "Dry-run PATCH with git apply --check for SCOPE.
@@ -81,7 +80,7 @@ Returns \"OK\" on success or \"FAIL\" on failure."
 Returns up to DEPTH levels (default 1), innermost first."
   (with-cur-dir
    root
-   (let* ((full-path (expand-file-name path default-directory)))
+   (let ((full-path (expand-file-name path default-directory)))
      (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
      (if (not (file-exists-p full-path))
          (format "File not found: %s" path)
@@ -101,27 +100,27 @@ Returns up to DEPTH levels (default 1), innermost first."
 ;;; --- Tool definitions ---
 
 (defun hutch--make-tools (scope result-box)
-  "Return all tools for a review, with SCOPE and RESULT-BOX captured."
+  "Return all gptel tools for a review, with SCOPE and RESULT-BOX captured."
   (let ((root (magit-toplevel)))
     (list
-     (llm-make-tool
+     (gptel-make-tool
       :function (lambda (path) (hutch--tool-read-diff-for-scope root scope path))
       :name "read_diff"
       :description "Read the full diff for a specific file in the current review scope. \
 Use this to inspect the actual changes before submitting findings."
-      :args (list '(:name "path"
-                          :type string
-                          :description "File path from the manifest")))
-     (llm-make-tool
+      :args '((:name "path"
+                     :type string
+                     :description "File path from the manifest")))
+     (gptel-make-tool
       :function (lambda (patch) (hutch--tool-verify-patch-for-scope root scope patch))
       :name "verify_patch"
       :description "Dry-run a unified diff patch with git apply --check. \
 Returns \"OK\" if the patch applies cleanly, or the git error if not. \
 Call this before submit_review for any finding that includes a patch."
-      :args (list '(:name "patch"
-                          :type string
-                          :description "Unified diff patch to verify")))
-     (llm-make-tool
+      :args '((:name "patch"
+                     :type string
+                     :description "Unified diff patch to verify")))
+     (gptel-make-tool
       :function (lambda (findings)
                   (hutch--log "tool" "submit_review: %d findings" (length findings))
                   (hutch--result-box-set result-box (append findings nil))
@@ -129,8 +128,7 @@ Call this before submit_review for any finding that includes a patch."
       :name "submit_review"
       :description "Submit your final code review findings. You MUST call this \
 exactly once when your review is complete. Every review must end with this call."
-      :args (list
-             `(:name "findings"
+      :args '((:name "findings"
                      :type array
                      :description "Array of review findings"
                      :items (:type object
@@ -147,53 +145,53 @@ Never use line numbers from read_file or search_codebase.")
                                           :patch (:type string
                                                         :description "Unified diff patch applicable with git apply, or null")
                                           :lgtm (:type boolean :description "true if file has no issues"))))))
-     (llm-make-tool
+     (gptel-make-tool
       :function (lambda (pattern &optional file-glob)
                   (hutch--tool-search-codebase root pattern file-glob))
       :name "search_codebase"
       :description "Search the codebase for a pattern using git grep. \
 Returns matching lines with file paths and line numbers. \
 Use this to find callers, references, imports, or any text pattern."
-      :args (list '(:name "pattern"
-                          :type string
-                          :description "Regex pattern to search for")
-                  '(:name "file_glob"
-                          :type string
-                          :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
-                          :optional t)))
-     (llm-make-tool
+      :args '((:name "pattern"
+                     :type string
+                     :description "Regex pattern to search for")
+              (:name "file_glob"
+                     :type string
+                     :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
+                     :optional t)))
+     (gptel-make-tool
       :function (lambda (path &optional max-count)
                   (hutch--tool-git-log root path max-count))
       :name "git_log"
       :description "Show recent commit history for a file. \
 Use this to understand why code looks the way it does \
 and what recent changes were made."
-      :args (list '(:name "path"
-                          :type string
-                          :description "File path relative to repo root")
-                  '(:name "max_count"
-                          :type integer
-                          :description "Max number of commits to return (default 10)"
-                          :optional t)))
-     (llm-make-tool
+      :args '((:name "path"
+                     :type string
+                     :description "File path relative to repo root")
+              (:name "max_count"
+                     :type integer
+                     :description "Max number of commits to return (default 10)"
+                     :optional t)))
+     (gptel-make-tool
       :function (lambda (path &optional start-line end-line)
                   (hutch--tool-git-blame root path start-line end-line))
       :name "git_blame"
       :description "Show git blame for a file, optionally for a \
 specific line range. \
 Use this to see who last modified lines and in what commit."
-      :args (list '(:name "path"
-                          :type string
-                          :description "File path relative to repo root")
-                  '(:name "start_line"
-                          :type integer
-                          :description "First line to blame (1-indexed)"
-                          :optional t)
-                  '(:name "end_line"
-                          :type integer
-                          :description "Last line to blame (1-indexed, inclusive)"
-                          :optional t)))
-     (llm-make-tool
+      :args '((:name "path"
+                     :type string
+                     :description "File path relative to repo root")
+              (:name "start_line"
+                     :type integer
+                     :description "First line to blame (1-indexed)"
+                     :optional t)
+              (:name "end_line"
+                     :type integer
+                     :description "Last line to blame (1-indexed, inclusive)"
+                     :optional t)))
+     (gptel-make-tool
       :function (lambda (path line &optional depth)
                   (hutch--tool-surrounding-context root path line depth))
       :name "surrounding_context"
@@ -201,16 +199,16 @@ Use this to see who last modified lines and in what commit."
 Use this to understand the full context of a changed line \
 without reading the entire file. \
 Pass depth to get multiple levels (e.g. function + class), but avoid going above 2."
-      :args (list '(:name "path"
-                          :type string
-                          :description "File path relative to repo root")
-                  '(:name "line"
-                          :type integer
-                          :description "Line number to find context for (1-indexed)")
-                  '(:name "depth"
-                          :type integer
-                          :description "Number of enclosing definitions to return (default 1)"
-                          :optional t))))))
+      :args '((:name "path"
+                     :type string
+                     :description "File path relative to repo root")
+              (:name "line"
+                     :type integer
+                     :description "Line number to find context for (1-indexed)")
+              (:name "depth"
+                     :type integer
+                     :description "Number of enclosing definitions to return (default 1)"
+                     :optional t))))))
 
 (provide 'magit-hutch-tools)
 
