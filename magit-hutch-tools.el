@@ -12,211 +12,205 @@
 (require 'magit-hutch-git)
 (require 'magit-hutch-treesit)
 
-;;; --- Tool functions ---
+;;; --- Tools ---
 
-(defun hutch--tool-search-codebase (pattern &optional file-glob)
+(defmacro with-cur-dir (root &rest body)
+  `(let ((default-directory ,root))
+     ,@body))
+
+(defun hutch--tool-search-codebase (root pattern &optional file-glob)
   "Search the codebase for PATTERN using git grep.  Optionally filter by FILE-GLOB."
-  (let ((default-directory (magit-toplevel)))
-    (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
-    (let ((result (with-temp-buffer
-                    (apply #'magit-git-insert "grep" "-n" "-e" pattern "--"
-                           (if file-glob (list file-glob) (list ".")))
-                    (buffer-string))))
-      (hutch--log "tool" "search_codebase: %d chars returned" (length result))
-      (if (string-empty-p result) "No matches found." result))))
+  (with-cur-dir
+   root
+   (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
+   (let ((result (with-temp-buffer
+                   (apply #'magit-git-insert "grep" "-n" "-e" pattern "--"
+                          (if file-glob (list file-glob) (list ".")))
+                   (buffer-string))))
+     (hutch--log "tool" "search_codebase: %d chars returned" (length result))
+     (if (string-empty-p result) "No matches found." result))))
 
-(defun hutch--tool-read-file (path &optional start-line end-line)
-  "Read PATH relative to repo root.  Optionally restrict to START-LINE..END-LINE."
-  (let* ((default-directory (magit-toplevel))
-         (full-path (expand-file-name path default-directory)))
-    (hutch--log "tool" "read_file: %s [%s-%s]" path
-                (or start-line "1") (or end-line "end"))
-    (if (not (file-exists-p full-path))
-        (format "File not found: %s" path)
-      (with-temp-buffer
-        (insert-file-contents full-path)
-        (let* ((lines (split-string (buffer-string) "\n"))
-               (start (max 0 (1- (or start-line 1))))
-               (end (min (length lines) (or end-line (length lines))))
-               (slice (seq-subseq lines start end)))
-          (hutch--log "tool" "read_file: %d lines returned" (length slice))
-          (string-join slice "\n"))))))
+(defun hutch--tool-read-file (root path &optional start-line end-line)
+  "Read PATH relative to repo ROOT.  Optionally restrict to START-LINE..END-LINE."
+  (with-cur-dir
+   root
+   (let ((full-path (expand-file-name path default-directory)))
+     (hutch--log "tool" "read_file: %s [%s-%s]" path
+                 (or start-line "1") (or end-line "end"))
+     (if (not (file-exists-p full-path))
+         (format "File not found: %s" path)
+       (with-temp-buffer
+         (insert-file-contents full-path)
+         (let* ((lines (split-string (buffer-string) "\n"))
+                (start (max 0 (1- (or start-line 1))))
+                (end (min (length lines) (or end-line (length lines))))
+                (slice (seq-subseq lines start end)))
+           (hutch--log "tool" "read_file: %d lines returned" (length slice))
+           (string-join slice "\n")))))))
 
-(defun hutch--tool-git-log (path &optional max-count)
+(defun hutch--tool-git-log (root path &optional max-count)
   "Show commit history for PATH.  Return up to MAX-COUNT entries (default 10)."
-  (let ((default-directory (magit-toplevel))
-        (n (number-to-string (or max-count 10))))
-    (hutch--log "tool" "git_log: %s (max %s)" path n)
-    (let ((result (with-temp-buffer
-                    (magit-git-insert "log" "--oneline" "--follow"
-                                      (format "-n%s" n) "--" path)
-                    (buffer-string))))
-      (hutch--log "tool" "git_log: %d chars returned" (length result))
-      (if (string-empty-p result) "No history found." result))))
+  (with-cur-dir
+   root
+   (let* ((n (number-to-string (or max-count 10)))
+          (result (hutch--git-log path n)))
+     (hutch--log "tool" "git_log: %s (max %s)" path n)
+     (hutch--log "tool" "git_log: %d chars returned" (length result))
+     (if (string-empty-p result) "No history found." result))))
 
-(defun hutch--tool-git-blame (path &optional start-line end-line)
+(defun hutch--tool-git-blame (root path &optional start-line end-line)
   "Show git blame for PATH.  Optionally restrict to START-LINE..END-LINE."
-  (let ((default-directory (magit-toplevel)))
-    (hutch--log "tool" "git_blame: %s [%s-%s]" path
-                (or start-line "1") (or end-line "end"))
-    (let ((result (with-temp-buffer
-                    (apply #'magit-git-insert "blame" "--porcelain"
-                           (append (when (and start-line end-line)
-                                     (list (format "-L%d,%d" start-line end-line)))
-                                   (list "--" path)))
-                    (buffer-string))))
-      (hutch--log "tool" "git_blame: %d chars returned" (length result))
-      (if (string-empty-p result) "No blame data found." result))))
+  (with-cur-dir root
+                (hutch--log "tool" "git_blame: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
+                (let ((result (hutch--git-blame path start-line end-line)))
+                  (hutch--log "tool" "git_blame: %d chars returned" (length result))
+                  (if (string-empty-p result) "No blame data found." result))))
 
-;;; --- Tree-sitter context ---
+(defun hutch--tool-verify-patch-for-scope (root scope patch)
+  "Dry-run PATCH with git apply --check for SCOPE.
+Returns \"OK\" on success or \"FAIL\" on failure."
+  (with-cur-dir
+   root
+   (hutch--log "tool" "verify_patch: %d chars [%s]" (length patch) (plist-get scope :scope))
+   (if (hutch--patch-apply-check scope patch)
+       "OK — patch applies cleanly."
+     "FAIL — patch does not apply cleanly, re-read the diff and correct line numbers.")))
 
-(defun hutch--tool-surrounding-context (path line &optional depth)
+(defun hutch--tool-surrounding-context (root path line &optional depth)
   "Return enclosing definitions around LINE in PATH using tree-sitter.
 Returns up to DEPTH levels (default 1), innermost first."
-  (let* ((default-directory (magit-toplevel))
-         (full-path (expand-file-name path default-directory)))
-    (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
-    (if (not (file-exists-p full-path))
-        (format "File not found: %s" path)
-      (let ((lang (hutch--treesit-lang-for-file path)))
-        (if (null lang)
-            (format "No tree-sitter grammar for %s" (file-name-extension path))
-          (or (hutch--treesit-enclosing-definition lang full-path line depth)
-              (format "No enclosing definition found at %s:%d" path line)))))))
+  (with-cur-dir
+   root
+   (let* ((full-path (expand-file-name path default-directory)))
+     (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
+     (if (not (file-exists-p full-path))
+         (format "File not found: %s" path)
+       (let ((lang (hutch--treesit-lang-for-file path)))
+         (if (null lang)
+             (format "No tree-sitter grammar for %s" (file-name-extension path))
+           (or (hutch--treesit-enclosing-definition lang full-path line depth)
+               (format "No enclosing definition found at %s:%d" path line))))))))
 
-;;; --- Read diff ---
-
-(defun hutch--tool-read-diff-for-scope (scope path)
+(defun hutch--tool-read-diff-for-scope (root scope path)
   "Return the full diff for PATH within SCOPE."
-  (let ((default-directory (magit-toplevel)))
-    (hutch--log "tool" "read_diff: %s [%s]" path (plist-get scope :scope))
-    (or (hutch--git-diff scope path) "No diff found.")))
-
-;;; --- Submit review ---
-
-(defun hutch--make-submit-tool (result-box)
-  "Return a submit_review tool that writes findings into RESULT-BOX."
-  (llm-make-tool
-   :function (lambda (findings)
-               (hutch--log "tool" "submit_review: %d findings" (length findings))
-               (hutch--result-box-set result-box (append findings nil))
-               "Review submitted.")
-   :name "submit_review"
-   :description "Submit your final code review findings. You MUST call this \
-exactly once when your review is complete. Every review must end with this call."
-   :args (list
-          `(:name "findings"
-            :type array
-            :description "Array of review findings"
-            :items (:type object
-                    :properties
-                    (:file (:type string :description "File path")
-                     :lines (:type string :description "Line range from the diff hunk headers, e.g. \"21-22\" or \"45\". Must reference actual changed lines, not the full file.")
-                     :title (:type string :description "Short issue title, max 80 chars")
-                     :description (:type string :description "1-2 sentence explanation, max 300 chars")
-                     :patch (:type string :description "Unified diff patch applicable with git apply, or null")
-                     :lgtm (:type boolean :description "true if file has no issues")))))))
+  (with-cur-dir
+   root
+   (hutch--log "tool" "read_diff: %s [%s]" path (plist-get scope :scope))
+   (or (hutch--git-diff scope path) "No diff found.")))
 
 ;;; --- Tool definitions ---
 
-(defun hutch--make-read-diff-tool (scope)
-  "Return a read_diff tool with SCOPE captured in its closure."
-  (llm-make-tool
-   :function (lambda (path) (hutch--tool-read-diff-for-scope scope path))
-   :name "read_diff"
-   :description "Read the full diff for a specific file in the current review scope. \
+(defun hutch--make-tools (scope result-box)
+  "Return all tools for a review, with SCOPE and RESULT-BOX captured."
+  (let ((root (magit-toplevel)))
+    (list
+     (llm-make-tool
+      :function (lambda (path) (hutch--tool-read-diff-for-scope root scope path))
+      :name "read_diff"
+      :description "Read the full diff for a specific file in the current review scope. \
 Use this to inspect the actual changes before submitting findings."
-   :args (list '(:name "path"
-                 :type string
-                 :description "File path from the manifest"))))
-
-(defun hutch--tools-for-scope (scope result-box)
-  "Return the tool list with read_diff bound to SCOPE and submit_review bound to RESULT-BOX."
-  (append (list (hutch--make-read-diff-tool scope)
-                (hutch--make-submit-tool result-box))
-          hutch--tools))
-
-(defvar hutch--tools
-  (list
-   (llm-make-tool
-    :function #'hutch--tool-search-codebase
-    :name "search_codebase"
-    :description "Search the codebase for a pattern using git grep. \
+      :args (list '(:name "path"
+                          :type string
+                          :description "File path from the manifest")))
+     (llm-make-tool
+      :function (lambda (patch) (hutch--tool-verify-patch-for-scope root scope patch))
+      :name "verify_patch"
+      :description "Dry-run a unified diff patch with git apply --check. \
+Returns \"OK\" if the patch applies cleanly, or the git error if not. \
+Call this before submit_review for any finding that includes a patch."
+      :args (list '(:name "patch"
+                          :type string
+                          :description "Unified diff patch to verify")))
+     (llm-make-tool
+      :function (lambda (findings)
+                  (hutch--log "tool" "submit_review: %d findings" (length findings))
+                  (hutch--result-box-set result-box (append findings nil))
+                  "Review submitted.")
+      :name "submit_review"
+      :description "Submit your final code review findings. You MUST call this \
+exactly once when your review is complete. Every review must end with this call."
+      :args (list
+             `(:name "findings"
+                     :type array
+                     :description "Array of review findings"
+                     :items (:type object
+                                   :properties
+                                   (:file (:type string :description "File path")
+                                          :lines (:type string
+                                                        :description "Line range copied directly from the \
+@@ hunk header in the diff you read via read_diff. \
+E.g. @@ -21,4 +21,4 @@ means lines \"21-24\". \
+Never use line numbers from read_file or search_codebase.")
+                                          :title (:type string :description "Short issue title, max 80 chars")
+                                          :description (:type string
+                                                              :description "1-2 sentence explanation, max 300 chars")
+                                          :patch (:type string
+                                                        :description "Unified diff patch applicable with git apply, or null")
+                                          :lgtm (:type boolean :description "true if file has no issues"))))))
+     (llm-make-tool
+      :function (lambda (pattern &optional file-glob)
+                  (hutch--tool-search-codebase root pattern file-glob))
+      :name "search_codebase"
+      :description "Search the codebase for a pattern using git grep. \
 Returns matching lines with file paths and line numbers. \
 Use this to find callers, references, imports, or any text pattern."
-    :args (list '(:name "pattern"
-                  :type string
-                  :description "Regex pattern to search for")
-                '(:name "file_glob"
-                  :type string
-                  :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
-                  :optional t)))
-   (llm-make-tool
-    :function #'hutch--tool-read-file
-    :name "read_file"
-    :description "Read the contents of a file in the repository. \
-Optionally read only a specific line range. \
-Use this to inspect type definitions, full function implementations, \
-or surrounding context."
-    :args (list '(:name "path"
-                  :type string
-                  :description "File path relative to repo root")
-                '(:name "start_line"
-                  :type integer
-                  :description "First line to read (1-indexed)"
-                  :optional t)
-                '(:name "end_line"
-                  :type integer
-                  :description "Last line to read (1-indexed, inclusive)"
-                  :optional t)))
-   (llm-make-tool
-    :function #'hutch--tool-git-log
-    :name "git_log"
-    :description "Show recent commit history for a file. \
+      :args (list '(:name "pattern"
+                          :type string
+                          :description "Regex pattern to search for")
+                  '(:name "file_glob"
+                          :type string
+                          :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
+                          :optional t)))
+     (llm-make-tool
+      :function (lambda (path &optional max-count)
+                  (hutch--tool-git-log root path max-count))
+      :name "git_log"
+      :description "Show recent commit history for a file. \
 Use this to understand why code looks the way it does \
 and what recent changes were made."
-    :args (list '(:name "path"
-                  :type string
-                  :description "File path relative to repo root")
-                '(:name "max_count"
-                  :type integer
-                  :description "Max number of commits to return (default 10)"
-                  :optional t)))
-   (llm-make-tool
-    :function #'hutch--tool-git-blame
-    :name "git_blame"
-    :description "Show git blame for a file, optionally for a \
+      :args (list '(:name "path"
+                          :type string
+                          :description "File path relative to repo root")
+                  '(:name "max_count"
+                          :type integer
+                          :description "Max number of commits to return (default 10)"
+                          :optional t)))
+     (llm-make-tool
+      :function (lambda (path &optional start-line end-line)
+                  (hutch--tool-git-blame root path start-line end-line))
+      :name "git_blame"
+      :description "Show git blame for a file, optionally for a \
 specific line range. \
 Use this to see who last modified lines and in what commit."
-    :args (list '(:name "path"
-                  :type string
-                  :description "File path relative to repo root")
-                '(:name "start_line"
-                  :type integer
-                  :description "First line to blame (1-indexed)"
-                  :optional t)
-                '(:name "end_line"
-                  :type integer
-                  :description "Last line to blame (1-indexed, inclusive)"
-                  :optional t)))
-   (llm-make-tool
-    :function #'hutch--tool-surrounding-context
-    :name "surrounding_context"
-    :description "Get enclosing definitions around a line using tree-sitter. \
+      :args (list '(:name "path"
+                          :type string
+                          :description "File path relative to repo root")
+                  '(:name "start_line"
+                          :type integer
+                          :description "First line to blame (1-indexed)"
+                          :optional t)
+                  '(:name "end_line"
+                          :type integer
+                          :description "Last line to blame (1-indexed, inclusive)"
+                          :optional t)))
+     (llm-make-tool
+      :function (lambda (path line &optional depth)
+                  (hutch--tool-surrounding-context root path line depth))
+      :name "surrounding_context"
+      :description "Get enclosing definitions around a line using tree-sitter. \
 Use this to understand the full context of a changed line \
 without reading the entire file. \
 Pass depth to get multiple levels (e.g. function + class), but avoid going above 2."
-    :args (list '(:name "path"
-                  :type string
-                  :description "File path relative to repo root")
-                '(:name "line"
-                  :type integer
-                  :description "Line number to find context for (1-indexed)")
-                '(:name "depth"
-                  :type integer
-                  :description "Number of enclosing definitions to return (default 1)"
-                  :optional t))))
-  "Tools available to the hutch review agent.")
+      :args (list '(:name "path"
+                          :type string
+                          :description "File path relative to repo root")
+                  '(:name "line"
+                          :type integer
+                          :description "Line number to find context for (1-indexed)")
+                  '(:name "depth"
+                          :type integer
+                          :description "Number of enclosing definitions to return (default 1)"
+                          :optional t))))))
 
 (provide 'magit-hutch-tools)
 

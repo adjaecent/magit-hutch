@@ -21,8 +21,8 @@ Set this to an `llm' provider instance, e.g.:
     (make-llm-claude :key (getenv \"ANTHROPIC_API_KEY\")
                      :chat-model \"claude-sonnet-4-5-20250929\"))")
 
-(defvar hutch-reasoning 'none
-  "Reasoning level for the review prompt.
+(defvar hutch-reasoning 'light
+  "Reasoning level for the review prompts.
 One of nil, `none', `light', `medium', or `maximum'.")
 
 ;;; --- Findings ---
@@ -57,10 +57,17 @@ TOKENS is an optional (input . output) cons cell."
         :input-tokens  (car tokens)
         :output-tokens (cdr tokens)))
 
+(defun hutch--sanitize-emsg (type msg)
+  "Return a brief, single-line error string from TYPE symbol and MSG."
+  (let* ((raw  (or msg (format "%s" type)))
+         (line (car (split-string raw "\n")))
+         (text (string-trim line)))
+    (hutch--str-truncate (if (string-empty-p text) (format "%s" type) text) 120)))
+
 (defun hutch--make-error-result (scope type msg)
   "Build an error result plist from SCOPE, error TYPE, and MSG."
   (hutch--log "llm" "error for %s: %s: %s" (plist-get scope :scope) type msg)
-  (hutch--make-result :error scope nil (format "%s: %s" type msg)))
+  (hutch--make-result :error scope nil (hutch--sanitize-emsg type msg)))
 
 ;;; --- LLM review ---
 
@@ -73,7 +80,7 @@ Pass a RESULT-BOX into the tools closure."
   (llm-make-chat-prompt
    (format hutch-review-template (plist-get scope :manifest))
    :context hutch-system-prompt
-   :tools (hutch--tools-for-scope scope result-box)
+   :tools (hutch--make-tools scope result-box)
    :reasoning hutch-reasoning))
 
 (defun hutch--normalize-tool-finding (raw)
@@ -120,6 +127,7 @@ Tracks ROUND recursively bounded by MAX-ROUNDS."
                 (if (hutch--result-box-get result-box) "SET" "nil")
                 (if (and (listp response) (plist-get response :tool-results)) "yes" "no")
                 (if (and (listp response) (plist-get response :text)) "yes" "no"))
+          (hutch--log "debug" "round %d raw-response=%S" round response)
           (cond
            ;; got a result back, exit
            ((hutch--result-box-get result-box)

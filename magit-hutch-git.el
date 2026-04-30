@@ -12,10 +12,10 @@
 ;;; --- Scopes ---
 ;;
 ;; A scope is a plist describing one layer of diffing:
-;;   :scope  -- keyword (:staged, :unpushed, :branch)
-;;   :head   -- the head ref (e.g. "HEAD", or nil for staged)
-;;   :base   -- the base ref (e.g. "main", "origin/feat", or nil for staged)
-;;   :desc   -- human-readable description (derived)
+;;   :scope    -- keyword (:staged, :unpushed, :branch)
+;;   :head     -- the head ref (e.g. "HEAD", or nil for staged)
+;;   :base     -- the base ref (e.g. "main", "origin/feat", or nil for staged)
+;;   :desc     -- human-readable description (derived)
 ;;   :manifest -- formatted file change summary string
 ;;   :hash     -- sha256 of :manifest (for caching)
 
@@ -33,8 +33,6 @@ SCOPE must be one of `hutch--valid-scopes'."
         :manifest manifest
         :hash     (secure-hash 'sha256 manifest)
         :desc     (if (and head base) (format "%s..%s" base head) "")))
-
-;;; --- Helpers ---
 
 (defun hutch--symbolic-ref ()
   "Return the symbolic ref for origin/HEAD."
@@ -61,8 +59,6 @@ SCOPE must be one of `hutch--valid-scopes'."
   (or (hutch--default-remote-ref)
       (hutch--default-common-ref)))
 
-;;; --- Diff collection ---
-
 (defun hutch--git-diff-numstat (&rest args)
   "Run git diff --numstat with ARGS.  Return formatted manifest string or nil."
   (let* ((output (with-temp-buffer
@@ -80,10 +76,11 @@ SCOPE must be one of `hutch--valid-scopes'."
 
 (defun hutch--git-diff (scope &optional path)
   "Run git diff for SCOPE, optionally limited to PATH.
-Returns the diff string or nil if empty."
+Return the diff string or nil if empty."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
-         (args (append (if (and (null head) (null base))
+         (staged (and (null head) (null base)))
+         (args (append (if staged
                            '("--cached")
                          (list base head))
                        (when path (list "--" path))))
@@ -91,6 +88,38 @@ Returns the diff string or nil if empty."
                  (apply #'magit-git-insert "diff" args)
                  (buffer-string))))
     (and diff (not (string-empty-p diff)) diff)))
+
+(defun hutch--patch-apply-check (scope patch)
+  "Run git apply for SCOPE for a given PATCH.
+Return t/nil based on patch applicability."
+  (let* ((head (plist-get scope :head))
+         (base (plist-get scope :base))
+         (staged (and (null head) (null base)))
+         (temp-patch (make-temp-file "hutch-patch-" nil ".diff")))
+    (with-temp-file temp-patch (insert patch))
+    (prog1
+        (if staged
+            (magit-git-success "apply"
+                               "--check" "--cached" "--" temp-patch)
+          (magit-git-success "apply" "--check" "--" temp-patch))
+      (delete-file temp-patch))))
+
+(defun hutch--git-log (path max-count)
+  "Run git log for PATH and optionally limit entries to max-count.
+Return the output of a git log"
+  (with-temp-buffer
+    (magit-git-insert "log" "--oneline" "--follow" (format "-n%s" max-count) "--" path)
+    (buffer-string)))
+
+(defun hutch--git-blame (path &optional start-line end-line)
+  "Run git blame for a PATH between START-LINE and END-LINE.
+Return the output of git blame"
+  (with-temp-buffer
+    (apply #'magit-git-insert "blame" "--porcelain"
+           (append (when (and start-line end-line)
+                     (list (format "-L%d,%d" start-line end-line)))
+                   (list "--" path)))
+    (buffer-string)))
 
 (defun hutch--collect-branch ()
   "Collect the branch scope, or nil if on default branch."

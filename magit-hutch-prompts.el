@@ -13,6 +13,12 @@
 in code diffs: bugs, logic errors, edge cases, security vulnerabilities, race \
 conditions, and correctness problems.
 
+MANDATORY tool sequence for any finding that includes a patch:
+1. Call read_diff to get the exact diff with hunk headers.
+2. Copy the @@ line numbers directly from the hunk header — never invent them.
+3. Call verify_patch. If it returns FAIL, fix the patch or drop it to a comment.
+4. Only then call submit_review.
+
 Rules:
 - Do NOT provide general feedback, summaries, explanations of changes, or praise.
 - Focus solely on specific, objective issues based on the diff context.
@@ -20,8 +26,7 @@ Rules:
 - If a file has no issues, include a single finding with lgtm: true for that file.
 - You MUST call submit_review with your findings when done. Do not respond with text.
 - Only use search/read tools when strictly necessary to verify a specific bug. \
-Do NOT search for definitions of every function you see in the diff. \
-Most reviews need zero or one search call before calling submit_review."
+Do NOT search for definitions of every function you see in the diff."
   "System prompt for hutch code review.")
 
 (defvar hutch-review-template
