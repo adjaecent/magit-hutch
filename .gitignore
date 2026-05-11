@@ -2,3 +2,4 @@
 *-autoloads.el
 *-pkg.el
 .dir-locals.el
+.claude/

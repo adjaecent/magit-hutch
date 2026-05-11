@@ -92,16 +92,15 @@ TOKENS is an optional (input . output) cons cell."
 
 (defun hutch--accumulate-tokens (token-box info round)
   "Add token counts from INFO into TOKEN-BOX for ROUND."
-  (when-let ((tokens (plist-get info :tokens)))
-    (let* ((cur (hutch--result-box-get token-box))
-           (in  (plist-get tokens :input))
-           (out (plist-get tokens :output)))
-      (when (or in out)
-        (hutch--log "tokens" "round %d +R%d/+W%d" round (or in 0) (or out 0))
+  (let ((in  (plist-get info :input-tokens))
+        (out (plist-get info :output-tokens)))
+    (when (or in out)
+      (hutch--log "tokens" "round %d +R%d/+W%d" round (or in 0) (or out 0))
+      (let ((cur (hutch--result-box-get token-box)))
         (hutch--result-box-set
          token-box
-         (cons (+ (or (car cur) 0) (or in 0))
-               (+ (or (cdr cur) 0) (or out 0))))))))
+         (cons (when (or in (car cur)) (+ (or (car cur) 0) (or in 0)))
+               (when (or out (cdr cur)) (+ (or (cdr cur) 0) (or out 0)))))))))
 
 (defun hutch--agent-request (response info on-done on-error result-box token-box round-box max-rounds)
   "gptel callback that drives one step of the tool-use loop.
@@ -109,20 +108,24 @@ RESPONSE and INFO are the gptel callback arguments.  ON-DONE is called
 when RESULT-BOX is set (submit_review fired).  ON-ERROR is called with
 \(TYPE MSG) on failure.  ROUND-BOX tracks the number of tool rounds;
 errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
-  (let ((round (or (hutch--result-box-get round-box) 0)))
-    (hutch--accumulate-tokens token-box info round)
+  (let ((round             (or (hutch--result-box-get round-box) 0))
+        (evt-resp          (and (consp response) (car response)) )
+        (is-abort          (eq response 'abort))
+        (is-tool-resp      (eq evt-resp 'tool-result))
+        (is-reasoning-resp (eq evt-resp 'reasoning))
+        (is-nil-resp       (null response))
+        (is-str-resp       (stringp response)))
     (hutch--log "debug" "round %d response=%S"
                 round (cond ((stringp response) "text")
-                            ((consp response) (car response))
+                            (evt-resp evt-resp)
                             (t response)))
     (cond
-     ((eq response 'abort) nil)
-
-     ((null response)
-      (funcall on-error 'llm-error (plist-get info :status)))
+     (is-abort nil) ;; was aborted in the FSM or cancelled externally
+     (is-nil-resp (funcall on-error 'llm-error (plist-get info :status))) ;; no response
 
      ;; gptel auto-executed tools; check result and track rounds
-     ((and (consp response) (eq (car response) 'tool-result))
+     (is-tool-resp
+      (hutch--accumulate-tokens token-box info round)
       (hutch--result-box-set round-box (1+ round))
       (cond
        ((hutch--result-box-get result-box)
@@ -130,10 +133,24 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
        ((> (1+ round) max-rounds)
         (funcall on-error 'tool-loop-exceeded "exceeded max tool rounds"))))
 
-     ;; text response — error only if submit_review was never called
-     ((stringp response)
-      (unless (hutch--result-box-get result-box)
-        (funcall on-error 'no-submit "model responded with text instead of tools"))))))
+     ;; reasoning block — normally intermediate, but if stop_reason is max_tokens
+     ;; the FSM goes DONE with no further callback; surface that as an error
+     (is-reasoning-resp
+      (when (equal (plist-get info :status) "max_tokens")
+        (funcall on-error 'max-tokens "stopped mid-thinking: max_tokens exhausted")))
+
+     ;; text response — error if no submit and no tool calls pending
+     ;; this is ok for a conversation agent, but for us this is breaking protocol
+     ((and is-str-resp
+           (not (hutch--result-box-get result-box))
+           (not (plist-get info :tool-use)))
+      (funcall on-error 'no-submit "model responded with text instead of tools"))
+
+     ;; unrecognized response type
+     (t
+      (funcall on-error 'unexpected-response
+               (format "model stopped unexpectedly (response type: %s)"
+                       (or evt-resp response)))))))
 
 (defun hutch--agent (prompt on-done on-error result-box token-box cancel-box round-box max-rounds)
   "Start a gptel request with PROMPT and a callback that drives the tool-use loop.
@@ -163,11 +180,9 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
   (let* ((result   (hutch--result-box-get result-box))
          (tokens   (hutch--result-box-get token-box))
          (findings (mapcar #'hutch--normalize-tool-finding result)))
-    (hutch--log "llm" "submit_review for %s: %d findings (R%dk/W%dk)"
+    (hutch--log "llm" "submit_review for %s: %d findings"
                 (plist-get scope :scope)
-                (length findings)
-                (/ (or (car tokens) 0) 1000)
-                (/ (or (cdr tokens) 0) 1000))
+                (length findings))
     (funcall callback (hutch--make-result :ok scope findings nil tokens))))
 
 (defun hutch--review-on-error (scope callback type msg)
