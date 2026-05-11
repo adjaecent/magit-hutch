@@ -47,9 +47,7 @@
 (defun hutch--badge-image (label face)
   "Return a propertized string displaying an SVG badge for LABEL.
 Prefix with an invisible zero-width character to make it play well with transient hiding."
-  (concat "\u200b"
-          (propertize " "
-                      'display (hutch--badge label face))))
+  (concat "\u200b" (propertize " " 'display (hutch--badge label face))))
 
 (defun hutch--diff-line-face (line)
   "Return the face for a diff LINE based on its prefix."
@@ -79,10 +77,16 @@ Prefix with an invisible zero-width character to make it play well with transien
   (insert "\n"))
 
 (defun hutch--insert-desc (desc)
-  "Insert DESC wrapped to 80 chars with 4-space indent."
-  (insert (hutch--wrap-text desc 80 "    ") "\n"))
+  "Insert DESC wrapped to 80 chars with 2-space indent."
+  (insert (hutch--wrap-text desc 80 "  ") "\n"))
 
 ;;; --- Section inserters ---
+
+(defconst finding-locator-format "%s:%s"
+  "Finding locator is a file:lines pair")
+
+(defconst hutch-badge-labels
+  '(suggestion "SUGGESTION" comment "COMMENT" lgtm "LGTM"))
 
 (defface hutch-badge-suggestion
   '((t :foreground "#ffffff" :background "#e06c75"))
@@ -96,45 +100,65 @@ Prefix with an invisible zero-width character to make it play well with transien
   '((t :foreground "#ffffff" :background "#98c379"))
   "Face for lgtm badges.")
 
+(defun hutch--longest-finding-locator (findings)
+  (seq-max
+   (mapcar (lambda (f)
+             (let* ((file         (plist-get f :file))
+                    (lines        (plist-get f :lines))
+                    (type         (plist-get f :type))
+                    (label        (plist-get hutch-badge-labels type))
+                    (label-length (length label)))
+               (if (and file lines)
+                   (+  (length (format finding-locator-format file lines))
+                       label-length)
+                 0)))
+           findings)))
+
 (defun hutch--insert-lgtm (finding)
   "Insert a LGTM section for FINDING."
   (magit-insert-section (review-lgtm (plist-get finding :file))
     (magit-insert-heading
-      (hutch--badge-image "LGTM" 'hutch-badge-lgtm)
+      (hutch--badge-image (plist-get hutch-badge-labels 'lgtm) 'hutch-badge-lgtm)
       (propertize (format " %s" (plist-get finding :file))
                   'font-lock-face 'magit-diff-file-heading))))
 
-(defun hutch--insert-suggestion (finding)
+(defun hutch--insert-suggestion (finding longest-width)
   "Insert a FINDING suggestion section (has a patch)."
-  (magit-insert-section (review-suggestion finding t)
-    (magit-insert-heading
-      (hutch--badge-image "SUGGESTION" 'hutch-badge-suggestion)
-      (propertize (format " %s:%s -- %s"
-                          (plist-get finding :file)
-                          (plist-get finding :lines)
-                          (plist-get finding :title))
-                  'font-lock-face 'magit-diff-file-heading))
-    (hutch--insert-desc (plist-get finding :desc))
-    (hutch--insert-patch-lines (plist-get finding :patch))))
+  (let* ((badge-label (plist-get hutch-badge-labels 'suggestion))
+         (width (- longest-width (length badge-label))))
+    (magit-insert-section (review-suggestion finding t)
+      (magit-insert-heading
+        (hutch--badge-image badge-label 'hutch-badge-suggestion)
+        (propertize (format (format " %%-%ds    %%s" width)
+                            (format finding-locator-format
+                                    (plist-get finding :file)
+                                    (plist-get finding :lines))
+                            (plist-get finding :title))
+                    'font-lock-face 'magit-diff-file-heading))
+      (hutch--insert-desc (plist-get finding :desc))
+      (hutch--insert-patch-lines (plist-get finding :patch)))))
 
-(defun hutch--insert-comment (finding)
+(defun hutch--insert-comment (finding longest-width)
   "Insert a FINDING:comment section (no patch).  Press `x' to dismiss."
-  (magit-insert-section (review-comment finding t)
-    (magit-insert-heading
-      (hutch--badge-image "COMMENT" 'hutch-badge-comment)
-      (propertize (format " %s:%s -- %s"
-                          (plist-get finding :file)
-                          (plist-get finding :lines)
-                          (plist-get finding :title))
-                  'font-lock-face 'magit-diff-file-heading))
-    (hutch--insert-desc (plist-get finding :desc))))
+  (let* ((badge-label (plist-get hutch-badge-labels 'comment))
+         (width (- longest-width (length badge-label))))
+    (magit-insert-section (review-comment finding t)
+      (magit-insert-heading
+        (hutch--badge-image badge-label 'hutch-badge-comment)
+        (propertize (format (format " %%-%ds    %%s" width)
+                            (format finding-locator-format
+                                    (plist-get finding :file)
+                                    (plist-get finding :lines))
+                            (plist-get finding :title))
+                    'font-lock-face 'magit-diff-file-heading))
+      (hutch--insert-desc (plist-get finding :desc)))))
 
-(defun hutch--insert-finding (finding)
+(defun hutch--insert-finding (finding longest-width)
   "Insert FINDING based on its :type."
   (pcase (plist-get finding :type)
     ('lgtm       (hutch--insert-lgtm finding))
-    ('suggestion (hutch--insert-suggestion finding))
-    ('comment    (hutch--insert-comment finding))))
+    ('suggestion (hutch--insert-suggestion finding longest-width))
+    ('comment    (hutch--insert-comment finding longest-width))))
 
 (defun hutch--insert-findings (findings display-label section-label result)
   "Insert FINDINGS under DISPLAY-LABEL heading, keyed by SECTION-LABEL."
@@ -147,8 +171,9 @@ Prefix with an invisible zero-width character to make it play well with transien
           ""))
     (if (null findings)
         (insert "No issues found.")
-      (dolist (finding findings)
-        (hutch--insert-finding finding)))
+      (let ((longest-width (hutch--longest-finding-locator findings)))
+        (dolist (finding findings)
+          (hutch--insert-finding finding longest-width))))
     (insert "\n")))
 
 ;;; --- Accept / reject ---
@@ -224,6 +249,14 @@ Prefix with an invisible zero-width character to make it play well with transien
   (interactive)
   (mapc #'funcall hutch--cancel-fns)
   (setq hutch--cancel-fns nil)
+  (dolist (scope hutch--scopes)
+    (let ((label (hutch--scope-label scope)))
+      (unless (assoc label hutch--results #'equal)
+        (push (cons label (list :status :cancelled
+                                :scope  (plist-get scope :scope)
+                                :desc   (plist-get scope :desc)))
+              hutch--results))))
+  (hutch--render-buffer (current-buffer))
   (message "Hutch: review(s) cancelled."))
 
 (defun hutch--scope-label (scope)
@@ -231,13 +264,13 @@ Prefix with an invisible zero-width character to make it play well with transien
   (format "%s %s" (plist-get scope :scope) (plist-get scope :desc)))
 
 (defun hutch--format-tokens (result)
-  "Format token counts from RESULT as \"R12k/W3k\" or nil if unavailable."
+  "Format token couwhnts from RESULT as \"R1.2k/W3.4k\" or \"W3.4k\" or nil."
   (let ((in  (plist-get result :input-tokens))
         (out (plist-get result :output-tokens)))
-    (when (or in out)
-      (format "R%.1fk / W%.1fk"
-              (/ (or in 0) 1000.0)
-              (/ (or out 0) 1000.0)))))
+    (cond
+     ((and in out) (format "R%.1fk/W%.1fk" (/ in 1000.0) (/ out 1000.0)))
+     (out          (format "W%.1fk" (/ out 1000.0)))
+     (in           (format "R%.1fk" (/ in 1000.0))))))
 
 (defun hutch--scope-name (scope)
   "Return the human-readable name for SCOPE."
@@ -254,7 +287,7 @@ Prefix with an invisible zero-width character to make it play well with transien
   (pcase (plist-get scope :scope)
     (:staged   "📦")
     (:unpushed "⬆️")
-    (:branch   "🌿")
+    (:branch   "🪾")
     (_         "📋")))
 
 (defun hutch--scope-display-label (scope &optional result)
@@ -280,6 +313,7 @@ Prefix with an invisible zero-width character to make it play well with transien
   (with-current-buffer buf
     (let ((inhibit-read-only t))
       (erase-buffer)
+      (setq magit-root-section nil)
       (magit-insert-section (review-root)
         (magit-insert-heading
           (propertize "magit-hutch: code review"
@@ -293,6 +327,10 @@ Prefix with an invisible zero-width character to make it play well with transien
             (cond
              ((null result)
               (insert (format "%s Reviewing %s...\n"
+                              (hutch--scope-emoji scope)
+                              (hutch--scope-name scope))))
+             ((eq (plist-get result :status) :cancelled)
+              (insert (format "%s Reviewing %s — cancelled ❌.\n\n"
                               (hutch--scope-emoji scope)
                               (hutch--scope-name scope))))
              ((eq (plist-get result :status) :error)
