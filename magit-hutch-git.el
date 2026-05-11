@@ -22,6 +22,17 @@
 (defconst hutch--valid-scopes '(:staged :unpushed :branch)
   "Valid scope keywords.")
 
+(defcustom hutch-scopes '(:staged :branch)
+  "Which scopes to include in a review.
+Each symbol corresponds to a diff layer:
+  :staged   — changes staged for the next commit
+  :unpushed — commits not yet pushed to the upstream
+  :branch   — all commits on this branch vs its base"
+  :type '(set (const :tag "Staged changes only" :staged)
+              (const :tag "Unpushed commits for current branch" :unpushed)
+              (const :tag "Unmerged changed between current branch and default branch" :branch))
+  :group 'hutch)
+
 (defun hutch--make-scope (scope head base manifest)
   "Create a scope plist for SCOPE with HEAD ref, BASE ref, and MANIFEST string.
 SCOPE must be one of `hutch--valid-scopes'."
@@ -144,11 +155,11 @@ Return the output of git blame"
     (hutch--make-scope :staged nil nil diff)))
 
 (defun hutch-collect-scopes ()
-  "Collect all available scopes.  Return a list of scope plists."
+  "Collect scopes enabled by `hutch-scopes'.  Return a list of scope plists."
   (seq-filter #'identity
-              (list (hutch--collect-branch)
-                    ;; (hutch--collect-unpushed)
-                    (hutch--collect-staged))))
+              (list (when (memq :branch   hutch-scopes) (hutch--collect-branch))
+                    (when (memq :unpushed hutch-scopes) (hutch--collect-unpushed))
+                    (when (memq :staged   hutch-scopes) (hutch--collect-staged)))))
 
 (provide 'magit-hutch-git)
 

@@ -99,12 +99,23 @@ Returns up to DEPTH levels (default 1), innermost first."
 
 ;;; --- Tool definitions ---
 
+(defcustom hutch-enabled-tools '(search-codebase git-log git-blame surrounding-context)
+  "Optional tools available to the review agent.
+The core tools (read-diff, verify-patch, submit-review) are always included."
+  :type '(set (const :tag "Search codebase" search-codebase)
+              (const :tag "Git log" git-log)
+              (const :tag "Git blame" git-blame)
+              (const :tag "Surrounding context (tree-sitter)" surrounding-context))
+  :group 'hutch)
+
 (defun hutch--make-tools (scope result-box)
-  "Return all gptel tools for a review, with SCOPE and RESULT-BOX captured."
+  "Return gptel tools for a review, with SCOPE and RESULT-BOX captured.
+Always includes core tools; optional tools filtered by `hutch-enabled-tools'."
   (let ((root (magit-toplevel)))
-    (list
-     (gptel-make-tool
-      :function (lambda (path) (hutch--tool-read-diff-for-scope root scope path))
+    (append
+     (list
+      (gptel-make-tool
+       :function (lambda (path) (hutch--tool-read-diff-for-scope root scope path))
       :name "read_diff"
       :description "Read the full diff for a specific file in the current review scope. \
 Use this to inspect the actual changes before submitting findings."
@@ -135,80 +146,86 @@ exactly once when your review is complete. Every review must end with this call.
                                    :properties
                                    (:file (:type string :description "File path")
                                           :lines (:type string
-                                                        :description "Line range copied directly from the \
-@@ hunk header in the diff you read via read_diff. \
-E.g. @@ -21,4 +21,4 @@ means lines \"21-24\". \
+                                                        :description "Line range of the actual changed \
+lines (the + or - lines), not the hunk header start. \
+E.g. if @@ -21,6 +21,6 @@ and the changed line is 3rd in the hunk, \
+the line number is 23, not 21. \
 Never use line numbers from read_file or search_codebase.")
                                           :title (:type string :description "Short issue title, max 80 chars")
                                           :description (:type string
-                                                              :description "1-2 sentence explanation, max 300 chars")
+                                                              :description "Explanation of the issue, max 1000 chars")
                                           :patch (:type string
                                                         :description "Unified diff patch applicable with git apply, or null")
                                           :lgtm (:type boolean :description "true if file has no issues"))))))
-     (gptel-make-tool
-      :function (lambda (pattern &optional file-glob)
-                  (hutch--tool-search-codebase root pattern file-glob))
-      :name "search_codebase"
-      :description "Search the codebase for a pattern using git grep. \
+     )
+     (when (memq 'search-codebase hutch-enabled-tools)
+       (list (gptel-make-tool
+              :function (lambda (pattern &optional file-glob)
+                          (hutch--tool-search-codebase root pattern file-glob))
+              :name "search_codebase"
+              :description "Search the codebase for a pattern using git grep. \
 Returns matching lines with file paths and line numbers. \
 Use this to find callers, references, imports, or any text pattern."
-      :args '((:name "pattern"
-                     :type string
-                     :description "Regex pattern to search for")
-              (:name "file_glob"
-                     :type string
-                     :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
-                     :optional t)))
-     (gptel-make-tool
-      :function (lambda (path &optional max-count)
-                  (hutch--tool-git-log root path max-count))
-      :name "git_log"
-      :description "Show recent commit history for a file. \
+              :args '((:name "pattern"
+                             :type string
+                             :description "Regex pattern to search for")
+                      (:name "file_glob"
+                             :type string
+                             :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
+                             :optional t)))))
+     (when (memq 'git-log hutch-enabled-tools)
+       (list (gptel-make-tool
+              :function (lambda (path &optional max-count)
+                          (hutch--tool-git-log root path max-count))
+              :name "git_log"
+              :description "Show recent commit history for a file. \
 Use this to understand why code looks the way it does \
 and what recent changes were made."
-      :args '((:name "path"
-                     :type string
-                     :description "File path relative to repo root")
-              (:name "max_count"
-                     :type integer
-                     :description "Max number of commits to return (default 10)"
-                     :optional t)))
-     (gptel-make-tool
-      :function (lambda (path &optional start-line end-line)
-                  (hutch--tool-git-blame root path start-line end-line))
-      :name "git_blame"
-      :description "Show git blame for a file, optionally for a \
+              :args '((:name "path"
+                             :type string
+                             :description "File path relative to repo root")
+                      (:name "max_count"
+                             :type integer
+                             :description "Max number of commits to return (default 10)"
+                             :optional t)))))
+     (when (memq 'git-blame hutch-enabled-tools)
+       (list (gptel-make-tool
+              :function (lambda (path &optional start-line end-line)
+                          (hutch--tool-git-blame root path start-line end-line))
+              :name "git_blame"
+              :description "Show git blame for a file, optionally for a \
 specific line range. \
 Use this to see who last modified lines and in what commit."
-      :args '((:name "path"
-                     :type string
-                     :description "File path relative to repo root")
-              (:name "start_line"
-                     :type integer
-                     :description "First line to blame (1-indexed)"
-                     :optional t)
-              (:name "end_line"
-                     :type integer
-                     :description "Last line to blame (1-indexed, inclusive)"
-                     :optional t)))
-     (gptel-make-tool
-      :function (lambda (path line &optional depth)
-                  (hutch--tool-surrounding-context root path line depth))
-      :name "surrounding_context"
-      :description "Get enclosing definitions around a line using tree-sitter. \
+              :args '((:name "path"
+                             :type string
+                             :description "File path relative to repo root")
+                      (:name "start_line"
+                             :type integer
+                             :description "First line to blame (1-indexed)"
+                             :optional t)
+                      (:name "end_line"
+                             :type integer
+                             :description "Last line to blame (1-indexed, inclusive)"
+                             :optional t)))))
+     (when (memq 'surrounding-context hutch-enabled-tools)
+       (list (gptel-make-tool
+              :function (lambda (path line &optional depth)
+                          (hutch--tool-surrounding-context root path line depth))
+              :name "surrounding_context"
+              :description "Get enclosing definitions around a line using tree-sitter. \
 Use this to understand the full context of a changed line \
 without reading the entire file. \
 Pass depth to get multiple levels (e.g. function + class), but avoid going above 2."
-      :args '((:name "path"
-                     :type string
-                     :description "File path relative to repo root")
-              (:name "line"
-                     :type integer
-                     :description "Line number to find context for (1-indexed)")
-              (:name "depth"
-                     :type integer
-                     :description "Number of enclosing definitions to return (default 1)"
-                     :optional t))))))
+              :args '((:name "path"
+                             :type string
+                             :description "File path relative to repo root")
+                      (:name "line"
+                             :type integer
+                             :description "Line number to find context for (1-indexed)")
+                      (:name "depth"
+                             :type integer
+                             :description "Number of enclosing definitions to return (default 1)"
+                             :optional t))))))))
 
 (provide 'magit-hutch-tools)
 

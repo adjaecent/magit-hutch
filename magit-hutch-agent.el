@@ -14,6 +14,11 @@
 
 ;;; --- User-facing options ---
 
+(defgroup hutch nil
+  "AI code review integrated with Magit."
+  :group 'magit
+  :prefix "hutch-")
+
 (defvar hutch-backend nil
   "gptel backend for hutch code reviews.
 Defaults to `gptel-backend' if nil.  Set this to a gptel backend, e.g.:
@@ -22,8 +27,11 @@ Defaults to `gptel-backend' if nil.  Set this to a gptel backend, e.g.:
           :key (getenv \"ANTHROPIC_API_KEY\")
           :models \\='(claude-sonnet-4-6)))")
 
-(defvar hutch-model nil
-  "Model to use for hutch reviews.  Defaults to `gptel-model' if nil.")
+
+(defcustom hutch-max-tool-rounds 20
+  "Maximum number of tool-call rounds per review scope before giving up."
+  :type 'integer
+  :group 'hutch)
 
 ;;; --- Findings ---
 
@@ -75,7 +83,7 @@ TOKENS is an optional (input . output) cons cell."
          (patch (plist-get raw :patch))
          (lines (or (plist-get raw :lines) "?"))
          (title (hutch--str-truncate (or (plist-get raw :title) "Issue") 80))
-         (desc  (hutch--str-truncate (or (plist-get raw :description) "") 300)))
+         (desc  (hutch--str-truncate (or (plist-get raw :description) "") 1000)))
     (cond
      (lgtm (hutch--make-finding 'lgtm file nil nil nil nil))
      ((and patch (stringp patch) (not (string-empty-p patch)))
@@ -168,7 +176,7 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
 
 (defun hutch--review-scope (scope callback cancel-box)
   "Review SCOPE asynchronously with tool use.  Call CALLBACK with a result plist."
-  (unless (or hutch-backend gptel-backend)
+  (unless hutch-backend
     (error "hutch-backend is not set"))
   (let* ((result-box    (hutch--make-result-box))
          (token-box     (hutch--make-result-box))
@@ -176,8 +184,8 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
          (tools         (hutch--make-tools scope result-box))
          (user-prompt   (format hutch-review-template (plist-get scope :manifest)))
          (prompt        (list :user user-prompt :system hutch-system-prompt))
-         (gptel-backend (or hutch-backend gptel-backend))
-         (gptel-model   (or hutch-model gptel-model))
+         (gptel-backend hutch-backend)
+         (gptel-model   (car (gptel-backend-models hutch-backend)))
          (gptel-tools   tools))
     (hutch--agent
      prompt
@@ -191,7 +199,7 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
      token-box
      cancel-box
      round-box
-     20)))
+     hutch-max-tool-rounds)))
 
 (defun hutch--review (scopes callback)
   "Review SCOPES with caching.  Call CALLBACK with each result plist as it arrives.
