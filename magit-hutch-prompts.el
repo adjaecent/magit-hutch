@@ -29,7 +29,8 @@ already identified a concrete, specific bug and need one fact to confirm it.
 
 MANDATORY tool sequence for any finding that includes a patch:
 1. Call read_diff to get the exact diff with hunk headers.
-2. Copy the @@ line numbers directly from the hunk header — never invent them.
+2. For :lines, use the line number of the actual changed line (+ or -), \
+not the @@ hunk header start which includes context lines above the change.
 3. Call verify_patch before submit_review for any finding with a patch.
 4. Call submit_review exactly once when all findings are ready.
 5. If verify_patch returns FAIL, fix the patch or drop it to a comment."
@@ -48,7 +49,7 @@ For each finding, provide:
 - file: the file path
 - lines: line range string like \"21-22\" or \"45\"
 - title: short issue title (max 80 chars)
-- description: 1-2 sentence explanation (max 300 chars)
+- description: explanation of the issue (max 1000 chars)
 - patch: a unified diff patch (see format below), or omit if no fix
 - lgtm: true only if the file has no issues
 
