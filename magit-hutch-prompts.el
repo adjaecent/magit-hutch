@@ -80,6 +80,16 @@ Example 2 (insertion):
    (/ a b))
 ```
 
+Example 3 (new file — use /dev/null as source):
+```
+--- /dev/null
++++ b/src/new-file.el
+@@ -0,0 +1,3 @@
++(defun foo ()
++  \"Docstring.\"
++  (bar))
+```
+
 The context lines (lines starting with a space) must match the file exactly.
 
 Keep titles and descriptions concise. Do not repeat yourself.

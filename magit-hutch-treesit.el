@@ -1,8 +1,8 @@
-;;; magit-hutch-treesit.el --- Find enclosing definitions with tree-sitter -*- lexical-binding: t; -*-
+;;; magit-hutch-treesit.el --- Find enclosing definitions with Tree-sitter -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; Language-agnostic tree-sitter utility for finding the enclosing
+;; Language-agnostic Tree-sitter utility for finding the enclosing
 ;; definition (function, method, class, etc.) for a given line in a file.
 
 ;;; Code:

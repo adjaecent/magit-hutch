@@ -5,12 +5,15 @@
 
 ;;; Code:
 
+(require 'dash)
 (require 'gptel-request)
 (require 'magit-hutch-utils)
 (require 'magit-hutch-git)
 (require 'magit-hutch-prompts)
 (require 'magit-hutch-tools)
 (require 'magit-hutch-cache)
+(require 'magit-hutch-findings)
+(require 'magit-hutch-gates)
 
 ;;; --- User-facing options ---
 
@@ -27,28 +30,10 @@ Defaults to `gptel-backend' if nil.  Set this to a gptel backend, e.g.:
           :key (getenv \"ANTHROPIC_API_KEY\")
           :models \\='(claude-sonnet-4-6)))")
 
-
 (defcustom hutch-max-tool-rounds 20
   "Maximum number of tool-call rounds per review scope before giving up."
   :type 'integer
   :group 'hutch)
-
-;;; --- Findings ---
-
-(defconst hutch--valid-finding-types '(lgtm suggestion comment)
-  "Valid finding type symbols.")
-
-(defun hutch--make-finding (type file lines title desc patch)
-  "Create a finding plist of TYPE for FILE with LINES and PATCH.
-TYPE must be one of `hutch--valid-finding-types'."
-  (unless (memq type hutch--valid-finding-types)
-    (error "Invalid finding type %s, must be one of %s" type hutch--valid-finding-types))
-  (list :type type
-        :file file
-        :lines lines
-        :title title
-        :desc desc
-        :patch patch))
 
 ;;; --- Results ---
 
@@ -76,19 +61,6 @@ TOKENS is an optional (input . output) cons cell."
   (hutch--log "llm" "error for %s: %s: %s" (plist-get scope :scope) type msg)
   (hutch--make-result :error scope nil (hutch--sanitize-emsg type msg)))
 
-(defun hutch--normalize-tool-finding (raw)
-  "Normalize RAW plist finding from submit_review into a finding plist."
-  (let* ((file  (or (plist-get raw :file) "unknown"))
-         (lgtm  (eq (plist-get raw :lgtm) t))
-         (patch (plist-get raw :patch))
-         (lines (or (plist-get raw :lines) "?"))
-         (title (hutch--str-truncate (or (plist-get raw :title) "Issue") 80))
-         (desc  (hutch--str-truncate (or (plist-get raw :description) "") 1000)))
-    (cond
-     (lgtm (hutch--make-finding 'lgtm file nil nil nil nil))
-     ((and patch (stringp patch) (not (string-empty-p patch)))
-      (hutch--make-finding 'suggestion file lines title desc patch))
-     (t (hutch--make-finding 'comment file lines title desc nil)))))
 
 (defun hutch--accumulate-tokens (token-box info round)
   "Add token counts from INFO into TOKEN-BOX for ROUND."
@@ -108,13 +80,13 @@ RESPONSE and INFO are the gptel callback arguments.  ON-DONE is called
 when RESULT-BOX is set (submit_review fired).  ON-ERROR is called with
 \(TYPE MSG) on failure.  ROUND-BOX tracks the number of tool rounds;
 errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
-  (let ((round             (or (hutch--result-box-get round-box) 0))
-        (evt-resp          (and (consp response) (car response)) )
-        (is-abort          (eq response 'abort))
-        (is-tool-resp      (eq evt-resp 'tool-result))
-        (is-reasoning-resp (eq evt-resp 'reasoning))
-        (is-nil-resp       (null response))
-        (is-str-resp       (stringp response)))
+  (let* ((round             (or (hutch--result-box-get round-box) 0))
+         (is-abort          (eq response 'abort))
+         (is-nil-resp       (null response))
+         (is-str-resp       (stringp response))
+         (evt-resp          (and (consp response) (car response)))
+         (is-tool-resp      (eq evt-resp 'tool-result))
+         (is-reasoning-resp (eq evt-resp 'reasoning)))
     (hutch--log "debug" "round %d response=%S"
                 round (cond ((stringp response) "text")
                             (evt-resp evt-resp)
@@ -129,7 +101,9 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
       (hutch--result-box-set round-box (1+ round))
       (cond
        ((hutch--result-box-get result-box)
-        (funcall on-done))
+        (condition-case err
+            (funcall on-done)
+          (error (funcall on-error 'on-done-error (error-message-string err)))))
        ((> (1+ round) max-rounds)
         (funcall on-error 'tool-loop-exceeded "exceeded max tool rounds"))))
 
@@ -139,12 +113,9 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
       (when (equal (plist-get info :status) "max_tokens")
         (funcall on-error 'max-tokens "stopped mid-thinking: max_tokens exhausted")))
 
-     ;; text response — error if no submit and no tool calls pending
-     ;; this is ok for a conversation agent, but for us this is breaking protocol
-     ((and is-str-resp
-           (not (hutch--result-box-get result-box))
-           (not (plist-get info :tool-use)))
-      (funcall on-error 'no-submit "model responded with text instead of tools"))
+     ;; text response — always an error for us; model must call submit_review
+     ((and is-str-resp (not (hutch--result-box-get result-box)))
+      (funcall on-error 'no-submit "model responded with text instead of calling submit_review"))
 
      ;; unrecognized response type
      (t
@@ -179,8 +150,10 @@ Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
 Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
   (let* ((result   (hutch--result-box-get result-box))
          (tokens   (hutch--result-box-get token-box))
-         (findings (mapcar #'hutch--normalize-tool-finding result)))
-    (hutch--log "llm" "submit_review for %s: %d findings"
+         (findings (->> result
+                        (mapcar #'hutch--normalize-tool-finding)
+                        (hutch--run-gates scope))))
+    (hutch--log "llm" "submit_review for %s: %d findings after gates"
                 (plist-get scope :scope)
                 (length findings))
     (funcall callback (hutch--make-result :ok scope findings nil tokens))))

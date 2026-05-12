@@ -30,22 +30,27 @@
      (hutch--log "tool" "search_codebase: %d chars returned" (length result))
      (if (string-empty-p result) "No matches found." result))))
 
-(defun hutch--tool-read-file (root path &optional start-line end-line)
-  "Read PATH relative to repo ROOT.  Optionally restrict to START-LINE..END-LINE."
+(defun hutch--tool-read-file (root scope path &optional start-line end-line)
+  "Read PATH at the revision for SCOPE relative to ROOT.
+For staged scope reads the index version; for branch/unpushed reads at HEAD.
+Optionally restrict to START-LINE..END-LINE."
   (with-cur-dir
    root
-   (let ((full-path (expand-file-name path default-directory)))
+   (let* ((head   (plist-get scope :head))
+          (staged (and (null head) (null (plist-get scope :base))))
+          (ref    (if staged (format ":%s" path) (format "%s:%s" (or head "HEAD") path))))
      (hutch--log "tool" "read_file: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
-     (if (not (file-exists-p full-path))
+     (if (not (magit-git-success "cat-file" "-e" ref))
          (format "File not found: %s" path)
-       (with-temp-buffer
-         (insert-file-contents full-path)
-         (let* ((lines (split-string (buffer-string) "\n"))
-                (start (max 0 (1- (or start-line 1))))
-                (end (min (length lines) (or end-line (length lines))))
-                (slice (seq-subseq lines start end)))
-           (hutch--log "tool" "read_file: %d lines returned" (length slice))
-           (string-join slice "\n")))))))
+       (let* ((content (with-temp-buffer
+                         (magit-git-insert "show" ref)
+                         (buffer-string)))
+              (lines (split-string content "\n"))
+              (start (max 0 (1- (or start-line 1))))
+              (end   (min (length lines) (or end-line (length lines))))
+              (slice (seq-subseq lines start end)))
+         (hutch--log "tool" "read_file: %d lines returned" (length slice))
+         (string-join slice "\n"))))))
 
 (defun hutch--tool-git-log (root path &optional max-count)
   "Show commit history for PATH.  Return up to MAX-COUNT entries (default 10)."
@@ -76,7 +81,7 @@ Returns \"OK\" on success or \"FAIL\" on failure."
      "FAIL — patch does not apply cleanly, re-read the diff and correct line numbers.")))
 
 (defun hutch--tool-surrounding-context (root path line &optional depth)
-  "Return enclosing definitions around LINE in PATH using tree-sitter.
+  "Return enclosing definitions around LINE in PATH using Tree-sitter.
 Returns up to DEPTH levels (default 1), innermost first."
   (with-cur-dir
    root
@@ -105,7 +110,8 @@ The core tools (read-diff, verify-patch, submit-review) are always included."
   :type '(set (const :tag "Search codebase" search-codebase)
               (const :tag "Git log" git-log)
               (const :tag "Git blame" git-blame)
-              (const :tag "Surrounding context (tree-sitter)" surrounding-context))
+              (const :tag "Surrounding context (Tree-sitter)" surrounding-context)
+              (const :tag "Read contents of a file" read-file))
   :group 'hutch)
 
 (defun hutch--make-tools (scope result-box)
@@ -127,7 +133,8 @@ Use this to inspect the actual changes before submitting findings."
       :name "verify_patch"
       :description "Dry-run a unified diff patch with git apply --check. \
 Returns \"OK\" if the patch applies cleanly, or the git error if not. \
-Call this before submit_review for any finding that includes a patch."
+Call this before submit_review for any finding that includes a patch. \
+For new files, the patch source must be \"--- /dev/null\", not \"--- a/file\"."
       :args '((:name "patch"
                      :type string
                      :description "Unified diff patch to verify")))
@@ -156,8 +163,26 @@ Never use line numbers from read_file or search_codebase.")
                                                               :description "Explanation of the issue, max 1000 chars")
                                           :patch (:type string
                                                         :description "Unified diff patch applicable with git apply, or null")
-                                          :lgtm (:type boolean :description "true if file has no issues"))))))
-     )
+                                          :lgtm (:type boolean :description "true if file has no issues")))))))
+     (when (memq 'read-file hutch-enabled-tools)
+       (list (gptel-make-tool
+              :function (lambda (path &optional start-line end-line)
+                          (hutch--tool-read-file root scope path start-line end-line))
+              :name "read_file"
+              :description "Read the contents of a file, optionally restricted to a line range. \
+Use this to inspect context outside the diff when a changed line references \
+something not visible in the diff itself."
+              :args '((:name "path"
+                             :type string
+                             :description "File path relative to repo root")
+                      (:name "start_line"
+                             :type integer
+                             :description "First line to read (1-indexed)"
+                             :optional t)
+                      (:name "end_line"
+                             :type integer
+                             :description "Last line to read (1-indexed, inclusive)"
+                             :optional t)))))
      (when (memq 'search-codebase hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (pattern &optional file-glob)

@@ -3,13 +3,8 @@
 
 ;;; Commentary:
 ;;
-
-;;; Code:
-
-(require 'magit)
-(require 'seq)
-
-;;; --- Scopes ---
+;;
+;; --- Scopes ---
 ;;
 ;; A scope is a plist describing one layer of diffing:
 ;;   :scope    -- keyword (:staged, :unpushed, :branch)
@@ -18,6 +13,11 @@
 ;;   :desc     -- human-readable description (derived)
 ;;   :manifest -- formatted file change summary string
 ;;   :hash     -- sha256 of :manifest (for caching)
+
+;;; Code:
+
+(require 'magit)
+(require 'seq)
 
 (defconst hutch--valid-scopes '(:staged :unpushed :branch)
   "Valid scope keywords.")
