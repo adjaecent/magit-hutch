@@ -50,7 +50,8 @@
                                          lines
                                          title
                                          desc
-                                         nil))
+                                         nil
+                                         'applied))
                 f)))
           findings))
 

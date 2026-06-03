@@ -10,7 +10,25 @@
 (defconst hutch--valid-finding-types '(lgtm suggestion comment)
   "Valid finding type symbols.")
 
-(defun hutch--make-finding (type file lines title desc patch)
+;;     pending
+;;      /   \
+;;    /      \
+;; applied  dismissed
+(defconst hutch--valid-finding-states '(pending applied dismissed)
+  "Valid finding state symbols.")
+
+(defun hutch--finding-state-transition (finding state)
+  "Transition FINDING to STATE.  Only 'pending findings can move ahead."
+  (unless (memq state hutch--valid-finding-states)
+    (error "Invalid finding state %s, must be one of %s" state hutch--valid-finding-states))
+  (let ((cur-state (plist-get finding :state)))
+    (when (and (eq cur-state 'pending)
+               (or (eq state 'applied)
+                   (eq state 'dismissed)))
+      (setq finding (plist-put finding :state state)))
+    finding))
+
+(defun hutch--make-finding (type file lines title desc patch state)
   "Create a finding plist of TYPE for FILE with LINES and PATCH.
 TYPE must be one of `hutch--valid-finding-types'."
   (unless (memq type hutch--valid-finding-types)
@@ -20,7 +38,8 @@ TYPE must be one of `hutch--valid-finding-types'."
         :lines lines
         :title title
         :desc desc
-        :patch patch))
+        :patch patch
+        :state state))
 
 (defun hutch--normalize-tool-finding (raw)
   "Normalize RAW plist finding from submit_review into a finding plist."
@@ -31,10 +50,10 @@ TYPE must be one of `hutch--valid-finding-types'."
          (title (hutch--str-truncate (or (plist-get raw :title) "Issue") 80))
          (desc  (hutch--str-truncate (or (plist-get raw :description) "") 1000)))
     (cond
-     (lgtm (hutch--make-finding 'lgtm file nil nil nil nil))
+     (lgtm (hutch--make-finding 'lgtm file nil nil nil nil 'applied))
      ((and patch (stringp patch) (not (string-empty-p patch)))
-      (hutch--make-finding 'suggestion file lines title desc patch))
-     (t (hutch--make-finding 'comment file lines title desc nil)))))
+      (hutch--make-finding 'suggestion file lines title desc patch 'pending))
+     (t (hutch--make-finding 'comment file lines title desc nil 'applied)))))
 
 (provide 'magit-hutch-findings)
 

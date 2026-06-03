@@ -80,6 +80,19 @@ Prefix with an invisible zero-width character to make it play well with transien
   "Insert DESC wrapped to 80 chars with 2-space indent."
   (insert (hutch--wrap-text desc 80 "  ") "\n"))
 
+(defface hutch-finding-applied
+  '((t :strike-through t))
+  "Face for applied suggestion titles.")
+
+(defface hutch-finding-dismissed
+  '((t :foreground "#666" :slant italic))
+  "Face for dismissed finding titles.")
+
+(defun hutch--state-face (state)
+  (pcase state
+    ('applied   'hutch-finding-applied)
+    ('dismissed 'hutch-finding-dismissed)))
+
 ;;; --- Section inserters ---
 
 (defconst finding-locator-format "%s:%s"
@@ -125,7 +138,8 @@ Prefix with an invisible zero-width character to make it play well with transien
 (defun hutch--insert-suggestion (finding longest-width)
   "Insert a FINDING suggestion section (has a patch)."
   (let* ((badge-label (plist-get hutch-badge-labels 'suggestion))
-         (width (- longest-width (length badge-label))))
+         (width (- longest-width (length badge-label)))
+         (state (plist-get finding :state)))
     (magit-insert-section (review-suggestion finding t)
       (magit-insert-heading
         (hutch--badge-image badge-label 'hutch-badge-suggestion)
@@ -134,7 +148,8 @@ Prefix with an invisible zero-width character to make it play well with transien
                                     (plist-get finding :file)
                                     (plist-get finding :lines))
                             (plist-get finding :title))
-                    'font-lock-face 'magit-diff-file-heading))
+                    'font-lock-face (delq nil (list 'magit-diff-file-heading
+                                                    (hutch--state-face state)))))
       (hutch--insert-desc (plist-get finding :desc))
       (hutch--insert-patch-lines (plist-get finding :patch)))))
 
@@ -216,23 +231,32 @@ Prefix with an invisible zero-width character to make it play well with transien
               (value (oref section value))
               (patch (plist-get value :patch))
               (file (plist-get value :file))
+              (state (plist-get value :state))
               (lines-str (plist-get value :lines))
               (root (magit-toplevel)))
     (cond
+     ((not (eq state 'pending))
+      (message "Already %s" (plist-get value :state)))
      ((not (hutch--git-apply-check patch root))
       (message "Patch does not apply cleanly to %s -- file may have changed" file))
      ((y-or-n-p (format "Apply fix to %s:%s? " file lines-str))
       (hutch--git-apply patch root)
       (hutch--revert-file-buffer file root)
-      (hutch--hide-section section (current-buffer))
-      (message "Applied fix to %s:%s" file lines-str)))))
+      (message "Applied fix to %s:%s" file lines-str)
+      (hutch--finding-state-transition value 'applied)
+      (hutch--render-buffer (current-buffer))))))
 
 (defun hutch-suggestion-reject ()
   "Reject the suggestion at point and collapse it."
   (interactive)
-  (when-let* ((section (magit-current-section)))
-    (hutch--hide-section section (current-buffer))
-    (message "Suggestion dismissed.")))
+  (when-let* ((section (magit-current-section))
+              (value (oref section value))
+              (state (plist-get value :state)))
+    (if (not (eq state 'pending))
+        (message "Already %s" (plist-get value :state))
+      (message "Suggestion dismissed.")
+      (hutch--finding-state-transition value 'dismissed)
+      (hutch--render-buffer (current-buffer)))))
 
 ;;; --- Buffer and entry point ---
 
