@@ -149,9 +149,10 @@ Prefix with an invisible zero-width character to make it play well with transien
 
 (defun hutch--insert-suggestion (finding longest-width)
   "Insert a FINDING suggestion section (has a patch)."
-  (let* ((badge-label (plist-get hutch-badge-labels 'suggestion))
-         (width (- longest-width (length badge-label)))
-         (state (plist-get finding :state)))
+  (let* ((state (plist-get finding :state))
+         (badge-label (plist-get hutch-badge-labels 'suggestion))
+         (badge-label (if (eq state 'queued) (concat badge-label " / " "Queued") badge-label))
+         (width (- longest-width (length badge-label))))
     (magit-insert-section (review-suggestion finding t)
       (magit-insert-heading
         (hutch--badge-image badge-label 'hutch-badge-suggestion)
