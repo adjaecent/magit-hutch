@@ -61,7 +61,8 @@
 (defun hutch--treesit-enclosing-parents (node parents found max-depth)
   "Walk up from NODE collecting parents definitions into PARENTS.
 FOUND tracks how many definitions collected so far.  Stop at MAX-DEPTH.
-Returns parents in outermost-first order.  `nreverse` to fetch it innermost-first."
+Returns parents in outermost-first order.
+`nreverse' to fetch it innermost-first."
   (cond
    ((or (null node) (>= found max-depth))
     parents)
@@ -87,8 +88,8 @@ Returns nil if none found."
   (when (treesit-language-available-p lang)
     (with-temp-buffer
       (insert-file-contents full-path)
-      (let* ((parser (treesit-parser-create lang))
-             (pos (save-excursion
+      (treesit-parser-create lang)
+      (let* ((pos (save-excursion
                     (goto-char (point-min))
                     (forward-line (1- line))
                     (point)))

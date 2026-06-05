@@ -14,10 +14,10 @@
 
 ;;; Code:
 
-(require 'dash)
 (require 'magit)
 (require 'seq)
 (require 'magit-hutch-git)
+(require 'subr-x)
 (require 'magit-hutch-utils)
 (require 'magit-hutch-findings)
 
@@ -57,9 +57,9 @@
 
 (defun hutch--run-gates (scope findings)
   "Run all gates over FINDINGS for SCOPE."
-  (-> findings
-      (hutch--gate-file)
-      (hutch--gate-patch scope)))
+  (thread-first findings
+                (hutch--gate-file)
+                (hutch--gate-patch scope)))
 
 (provide 'magit-hutch-gates)
 

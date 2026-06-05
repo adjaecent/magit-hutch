@@ -5,7 +5,7 @@
 
 ;;; Code:
 
-(require 'dash)
+(require 'subr-x)
 (require 'gptel-request)
 (require 'magit-hutch-utils)
 (require 'magit-hutch-git)
@@ -135,24 +135,24 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
 Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure.
 ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round.
 Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
-  (->>
-   (gptel-request (plist-get prompt :user)
-     :system (plist-get prompt :system)
-     :callback (lambda (response info)
-                 (hutch--agent-request response
-                                       info
-                                       on-done
-                                       on-error
-                                       on-progress
-                                       result-box
-                                       token-box
-                                       round-box
-                                       max-rounds)))
-   (hutch--result-box-set cancel-box)))
+  (thread-last
+    (gptel-request (plist-get prompt :user)
+      :system (plist-get prompt :system)
+      :callback (lambda (response info)
+                  (hutch--agent-request response
+                                        info
+                                        on-done
+                                        on-error
+                                        on-progress
+                                        result-box
+                                        token-box
+                                        round-box
+                                        max-rounds)))
+    (hutch--result-box-set cancel-box)))
 
 (defun hutch--agent-cancel (cancel-box)
   "Cancel an in-flight review if there is an FSM handle in CANCEL-BOX."
-  (when-let ((fsm (hutch--result-box-get cancel-box)))
+  (when-let* ((fsm (hutch--result-box-get cancel-box)))
     (gptel--fsm-transition fsm 'ABRT)))
 
 (defun hutch--review-on-done (scope result-box token-box callback)
@@ -160,16 +160,17 @@ Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
 Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
   (let* ((result   (hutch--result-box-get result-box))
          (tokens   (hutch--result-box-get token-box))
-         (findings (->> result
-                        (mapcar #'hutch--normalize-tool-finding)
-                        (hutch--run-gates scope))))
+         (findings (thread-last result
+                                (mapcar #'hutch--normalize-tool-finding)
+                                (hutch--run-gates scope))))
     (hutch--log "llm" "submit_review for %s: %d findings after gates"
                 (plist-get scope :scope)
                 (length findings))
     (funcall callback (hutch--make-result :ok scope findings nil tokens))))
 
 (defun hutch--review-on-error (scope callback type msg)
-  "Handle review error for SCOPE.  Call CALLBACK with error result from TYPE and MSG."
+  "Handle review error for SCOPE.
+Call CALLBACK with an error result built from TYPE and MSG."
   (funcall callback (hutch--make-error-result scope type msg)))
 
 (defun hutch--review-scope (scope on-done on-progress cancel-box)
@@ -216,7 +217,7 @@ Returns a list of cancel-callbacks to cancel reviews for SCOPES."
                   (desc             (plist-get scope :desc))
                   (scope-key        (plist-get scope :scope))
                   (cancel-scope-box (hutch--make-result-box)))
-              (if-let ((cached (hutch--cache-lookup hash)))
+              (if-let* ((cached (hutch--cache-lookup hash)))
                   (progn
                     (hutch--log "review" "cache hit for %s %s" scope-key desc)
                     (funcall on-done cached)

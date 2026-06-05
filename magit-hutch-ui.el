@@ -49,7 +49,8 @@
 
 (defun hutch--badge-image (label face)
   "Return a propertized string displaying an SVG badge for LABEL.
-Prefix with an invisible zero-width character to make it play well with transient hiding."
+Prefix with an invisible zero-width character so it interacts cleanly
+with transient hiding."
   (concat "\u200b" (propertize " " 'display (hutch--badge label face))))
 
 (defun hutch--diff-line-face (line)
@@ -195,7 +196,7 @@ Prefix with an invisible zero-width character to make it play well with transien
     (magit-insert-heading
       (propertize display-label 'font-lock-face 'magit-section-heading)
       " "
-      (or (when-let ((tokens (hutch--format-tokens result)))
+      (or (when-let* ((tokens (hutch--format-tokens result)))
             (hutch--badge-image tokens 'hutch-badge-tokens))
           ""))
     (if (null findings)
@@ -209,8 +210,8 @@ Prefix with an invisible zero-width character to make it play well with transien
 
 (defun hutch-suggestion-reject ()
   "Dismiss the suggestion at point.
-Only pending findings can be dismissed; once queued, the only exits are
-'applied or 'invalid via `hutch-bulk-apply'."
+Only pending findings can be dismissed; once queued, the only exits
+are `applied' or `invalid' via `hutch-bulk-apply'."
   (interactive)
   (hutch--ensure-active)
   (when-let* ((section (magit-current-section))
@@ -278,7 +279,7 @@ Aborts if the scope's index has changed since the review was generated."
       ;; Our own applications legitimately change the index, so the next bulk-apply
       ;; would trip the hash guard.  Refresh to the post-apply hash so the
       ;; guard still detects EXTERNAL changes, not changes we just made.
-      (when-let ((new-hash (hutch--scope-hash-current scope)))
+      (when-let* ((new-hash (hutch--scope-hash-current scope)))
         (plist-put result :hash new-hash))
       (hutch--render-buffer (current-buffer))
       (let ((applied (seq-count (lambda (f) (eq (plist-get f :state) 'applied))
@@ -431,7 +432,7 @@ runs next time."
   "Insert the in-progress indicator for scope LABEL at point.
 Renders an svg progress bar when a progress entry exists, falling back
 to \"...\" before the first tick arrives."
-  (when-let ((p (cdr (assoc label hutch--progress #'equal))))
+  (when-let* ((p (cdr (assoc label hutch--progress #'equal))))
     (insert (propertize " " 'display
                         (svg-lib-progress-bar
                          (min 1.0 (/ (float (car p)) (cdr p))))))))

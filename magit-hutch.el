@@ -5,18 +5,30 @@
 ;; Author: adjaecent
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;; Package-Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (magit "4.0") (llm "0.20"))
+;; Package-Requires: ((emacs "30.1") (magit "4.0") (gptel "0.9") (svg-lib "0.3"))
 
 ;;; Commentary:
 
 ;; Hutch provides AI-powered code review integrated with magit.
 ;; It reviews staged changes, unpushed commits, and branch diffs
-;; using an LLM with tool-calling for codebase context.
+;; using an LLM (via gptel) with tool-calling for codebase context.
 ;;
-;; Usage:
-;;   (setq hutch-provider
-;;     (make-llm-claude :key (getenv "ANTHROPIC_API_KEY")
-;;                      :chat-model "claude-sonnet-4-5-20250929"))
+;; Configure a gptel backend as `hutch-backend`, then invoke the review
+;; via `d R` in `magit-diff` or `M-x hutch-magit-review`.
+;;
+;; Example backends:
+;;
+;;   ;; Anthropic
+;;   (setq hutch-backend
+;;         (gptel-make-anthropic "Claude"
+;;           :key (getenv "ANTHROPIC_API_KEY")
+;;           :models '(claude-sonnet-4-6)))
+;;
+;;   ;; OpenAI
+;;   (setq hutch-backend
+;;         (gptel-make-openai "OpenAI"
+;;           :key (getenv "OPENAI_API_KEY")
+;;           :models '(gpt-5.5)))
 
 ;;; Code:
 

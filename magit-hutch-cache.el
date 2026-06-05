@@ -6,9 +6,12 @@
 
 ;;; Code:
 
+(require 'subr-x)
+(require 'magit)
+
 (defun hutch--cache-file ()
   "Return the path to the review cache file in .git/."
-  (expand-file-name "hutch-review-cache" (magit-git-dir)))
+  (expand-file-name "hutch-review-cache" (magit-gitdir)))
 
 (defun hutch--cache-lookup (hash)
   "Look up HASH in the cache.  Return the result plist or nil on miss."
@@ -44,7 +47,8 @@
         (with-temp-file cache-file (prin1 pruned (current-buffer)))))))
 
 (defun hutch--write-through-cache-callback (hash callback)
-  "Return a callback that caches successful result against HASH before calling CALLBACK."
+  "Return a callback that caches a successful result against HASH.
+The wrapped CALLBACK is invoked after the write-through."
   (let ((cache-file (hutch--cache-file)))
     (lambda (result)
       (hutch--log "cache" "status: %s hash: %s" (plist-get result :status) hash)

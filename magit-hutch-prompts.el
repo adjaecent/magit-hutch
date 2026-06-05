@@ -45,7 +45,8 @@ verify_patch policy:
 - Maximum 2 attempts per finding.
 - On 2nd failure: drop the patch, submit as comment.
 - Do not re-read files or re-call read_diff to retry beyond attempt 2."
-  "System prompt template.  Expects three %d slots: hard limit, soft target, hard limit.")
+  "System prompt template.
+Expects three %d slots: hard limit, soft target, hard limit.")
 
 (defcustom hutch-soft-budget-ratio 0.65
   "Fraction of `hutch-max-tool-rounds' to show as the soft target in the prompt."

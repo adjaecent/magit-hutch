@@ -24,7 +24,7 @@
 (require 'magit-hutch-findings)
 
 (defun hutch--apply-candidates (findings)
-  "Return FINDINGS with :state 'queued, sorted for bottom-up application.
+  "Return FINDINGS with :state `queued', sorted for bottom-up application.
 
 Within each file, candidates are sorted by descending start line so earlier
 applies don't shift line numbers for later ones.  Across files, order is
@@ -45,8 +45,8 @@ unspecified."
 (defun hutch--apply-bulk (findings scope root)
   "Apply each queued finding in FINDINGS bottom-up per file under ROOT for SCOPE.
 
-Mutates findings in place: 'queued → 'applied on success, 'queued → 'invalid
-on failure.  Returns FINDINGS for chaining.
+Mutates findings in place: `queued' → `applied' on success, `queued' →
+`invalid' on failure.  Returns FINDINGS for chaining.
 
 Does not revert visiting buffers; if the user had the file open with unsaved
 edits, Emacs will warn at next save."

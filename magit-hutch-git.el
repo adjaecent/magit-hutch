@@ -55,7 +55,7 @@ SCOPE must be one of `hutch--valid-scopes'."
 
 (defun hutch--default-remote-ref ()
   "Return the default branch name from origin/HEAD."
-  (when-let ((ref (hutch--symbolic-ref)))
+  (when-let* ((ref (hutch--symbolic-ref)))
     (string-remove-prefix "refs/remotes/origin/" ref)))
 
 (defconst hutch--default-branch-names '("main" "master")
@@ -106,8 +106,8 @@ For staged scope, applies to BOTH the index and working tree (--index);
 for branch/unpushed scopes, applies to the working tree only.
 With --index, working tree and index stay in sync — but if the user has
 unstaged edits in the file, the apply will fail (and the finding is
-marked 'invalid).
-Return (OK . OUTPUT) where OUTPUT is git's stderr on failure."
+marked `invalid').
+Return (OK . OUTPUT) where OUTPUT is the stderr from git on failure."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
          (staged (and (null head) (null base)))
@@ -155,14 +155,14 @@ Return the output of git blame"
 
 (defun hutch--collect-unpushed ()
   "Collect the unpushed scope, or nil if no upstream or no diff."
-  (when-let ((current (magit-get-current-branch)))
-    (when-let ((upstream (magit-get-upstream-branch current)))
-      (when-let ((diff (hutch--git-diff-numstat upstream "HEAD")))
-        (hutch--make-scope :unpushed "HEAD" upstream diff)))))
+  (when-let* ((current  (magit-get-current-branch))
+              (upstream (magit-get-upstream-branch current))
+              (diff     (hutch--git-diff-numstat upstream "HEAD")))
+    (hutch--make-scope :unpushed "HEAD" upstream diff)))
 
 (defun hutch--collect-staged ()
   "Collect the staged scope, or nil if nothing staged."
-  (when-let ((diff (hutch--git-diff-numstat "--cached")))
+  (when-let* ((diff (hutch--git-diff-numstat "--cached")))
     (hutch--make-scope :staged nil nil diff)))
 
 (defun hutch-collect-scopes ()
