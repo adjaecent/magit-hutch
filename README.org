@@ -15,9 +15,61 @@ These tools are run with baked-in guardrails to not overburden the context lengt
 
 ** Installation
 
-It uses the =llm= package under the hood, so a =hutch-provider= must be configured beforehand. We recommend using SOTA models only, since the output from cheaper models can be unreliable.
+It uses the =gptel= package under the hood, so a =hutch-provider= must be configured beforehand. We recommend using SOTA models only, since the output from cheaper models can be unreliable.
 
+*** straight.el
 #+begin_src emacs-lisp
+  (use-package magit-hutch
+    :straight (:host github :repo "adjaecent/magit-hutch")
+    :config
+    (setq hutch-backend
+          (gptel-make-anthropic "Claude"
+            :key (getenv "ANTHROPIC_API_KEY")
+            :models '(claude-sonnet-4-6))))
+#+end_src
+
+*** elpaca
+#+begin_src emacs-lisp
+  (use-package magit-hutch
+    :ensure (:host github :repo "adjaecent/magit-hutch")
+    :config
+    (setq hutch-backend
+          (gptel-make-anthropic "Claude"
+            :key (getenv "ANTHROPIC_API_KEY")
+            :models '(claude-sonnet-4-6))))
+#+end_src
+
+*** package-vc (Emacs 29+ built-in, no extra deps):
+#+begin_src emacs-lisp
+  (unless (package-installed-p 'magit-hutch)
+    (package-vc-install "https://github.com/adjaecent/magit-hutch"))
+
+  (with-eval-after-load 'magit-hutch
+    (setq hutch-backend
+          (gptel-make-anthropic "Claude"
+            :key (getenv "ANTHROPIC_API_KEY")
+            :models '(claude-sonnet-4-6))))
+#+end_src
+
+*** Manual clone
+#+begin_src emacs-lisp
+  (add-to-list 'load-path "~/path/to/magit-hutch")
+  (require 'magit-hutch)
+  ;; then install magit, gptel, svg-lib, dash via your usual mechanism
+  (setq hutch-backend ...)
+#+end_src
+
+** Backend configuration
+#+begin_src emacs-lisp
+  ;; OpenAI
+  (gptel-make-openai "OpenAI" :key (getenv "OPENAI_API_KEY") :models '(gpt-5.5))
+
+  ;; OpenRouter (gateway)
+  (gptel-make-openai "OpenRouter"
+    :host "openrouter.ai" :endpoint "/api/v1/chat/completions"
+    :key (getenv "OPENROUTER_API_KEY")
+    :models '(deepseek/deepseek-chat))
+
 (use-package magit-hutch
   :straight (:local-repo "/Users/kitallis/Code/adjaecent/magit-hutch")
   :config
@@ -25,6 +77,27 @@ It uses the =llm= package under the hood, so a =hutch-provider= must be configur
   (setq hutch-provider
         (make-llm-claude :key (getenv "ANTHROPIC_API_KEY")
                          :chat-model "claude-sonnet-4-5-20250929")))
+#+end_src
+
+** Configuration
+#+begin_src emacs-lisp
+(use-package magit-hutch
+  :straight (:host github :repo "adjaecent/magit-hutch")
+  :config
+  (setq gptel-log-level 'info)
+  (setq hutch-backend
+        (gptel-make-openai "OpenAI"
+          :key (getenv "OPENAI_API_KEY")
+          :models '(gpt-5.5)))
+  ;; staged: review staged changes
+  ;; unpushed: commits not yet pushed upstream
+  ;; branch: commits in this branch not merged against default branch (main, master etc.)
+  (setq hutch-scopes '(:staged :branch))
+  ;; number of rounds before the agent gives up, 20 is default
+  (setq hutch-max-tool-rounds 20)
+  ;; tools available to use, default: only read_diff
+  (setq hutch-enabled-tools '(read-file search-codebase git-log git-blame surrounding-context)))
+
 #+end_src
 
 ** Usage
@@ -41,12 +114,6 @@ A dependency graph of the codebase built lazily as the agent explores. Nodes are
 
 *** Composable tool primitives
 Instead of hardcoding every tool, expose primitives (git, tree-sitter, file I/O) and let the model compose them. The model writes elisp in a sandboxed eval to build custom queries on the fly — "find all callers of this function that don't handle the nil case." Tools that generate tools.
-
-*** RLM-style agent loop
-The model doesn't get the full codebase in its prompt. It gets the diff summary and a set of tools, then decides what to look at. It calls =search_codebase=, reads the result, decides it needs more, calls =read_file=, and so on in a loop until it has enough context to produce findings. The model controls the retrieval strategy, not the code.
-
-*** Batch apply with invalidation graph
-Mark suggestions for accept (instead of immediate apply), then bulk-apply all marked patches bottom-to-top within each file so line numbers don't shift. Track an invalidation graph: overlapping/adjacent patches in the same file are connected, applying one flags others as stale.
 
 ** LLM-usage disclosure
 
