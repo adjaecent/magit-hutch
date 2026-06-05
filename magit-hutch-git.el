@@ -101,18 +101,21 @@ Return the diff string or nil if empty."
     (and diff (not (string-empty-p diff)) diff)))
 
 (defun hutch--patch-apply-check (scope patch)
-  "Run git apply for SCOPE for a given PATCH.
-Return t/nil based on patch applicability."
+  "Run git apply --check for SCOPE on PATCH.
+Return (OK . OUTPUT) where OK is t/nil and OUTPUT is git's stderr on failure."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
          (staged (and (null head) (null base)))
-         (temp-patch (make-temp-file "hutch-patch-" nil ".diff")))
-    (with-temp-file temp-patch (insert patch))
+         (normalized (if (string-suffix-p "\n" patch) patch (concat patch "\n")))
+         (temp-patch (make-temp-file "hutch-patch-" nil ".diff"))
+         (args (if staged
+                   (list "apply" "--check" "--cached" "--" temp-patch)
+                 (list "apply" "--check" "--" temp-patch))))
+    (with-temp-file temp-patch (insert normalized))
     (prog1
-        (if staged
-            (magit-git-success "apply"
-                               "--check" "--cached" "--" temp-patch)
-          (magit-git-success "apply" "--check" "--" temp-patch))
+        (with-temp-buffer
+          (let ((exit (apply #'process-file "git" nil (list t t) nil args)))
+            (cons (zerop exit) (string-trim (buffer-string)))))
       (delete-file temp-patch))))
 
 (defun hutch--git-log (path max-count)

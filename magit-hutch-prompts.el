@@ -33,7 +33,14 @@ MANDATORY tool sequence for any finding that includes a patch:
 not the @@ hunk header start which includes context lines above the change.
 3. Call verify_patch before submit_review for any finding with a patch.
 4. Call submit_review exactly once when all findings are ready.
-5. If verify_patch returns FAIL, fix the patch or drop it to a comment."
+
+verify_patch FAILURE POLICY — STRICT:
+- You get AT MOST 2 verify_patch attempts per finding.
+- If the SECOND attempt also FAILs, you MUST drop the patch and submit the \
+finding as a comment (omit the patch field). Do NOT try a third variation.
+- Do NOT re-read the file, re-run read_diff, or retry verify_patch beyond \
+attempt 2. The gate will handle downgrading. Moving on is correct behavior.
+- Burning tool calls on a stuck patch is worse than submitting a comment."
   "System prompt for hutch code review.")
 
 (defvar hutch-review-template

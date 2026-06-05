@@ -72,13 +72,17 @@ Optionally restrict to START-LINE..END-LINE."
 
 (defun hutch--tool-verify-patch-for-scope (root scope patch)
   "Dry-run PATCH with git apply --check for SCOPE.
-Returns \"OK\" on success or \"FAIL\" on failure."
+Returns \"OK\" on success or \"FAIL: <git error>\" on failure."
   (with-cur-dir
    root
-   (hutch--log "tool" "verify_patch: %d chars [%s]" (length patch) (plist-get scope :scope))
-   (if (hutch--patch-apply-check scope patch)
-       "OK — patch applies cleanly."
-     "FAIL — patch does not apply cleanly, re-read the diff and correct line numbers.")))
+   (let* ((result (hutch--patch-apply-check scope patch))
+          (ok    (car result))
+          (out   (cdr result)))
+     (hutch--log "tool" "verify_patch: %d chars [%s] → %s"
+                 (length patch) (plist-get scope :scope) (if ok "OK" out))
+     (if ok
+         "OK — patch applies cleanly."
+       (format "FAIL — git apply: %s" out)))))
 
 (defun hutch--tool-surrounding-context (root path line &optional depth)
   "Return enclosing definitions around LINE in PATH using Tree-sitter.

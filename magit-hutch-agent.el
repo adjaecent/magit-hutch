@@ -113,9 +113,16 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
       (when (equal (plist-get info :status) "max_tokens")
         (funcall on-error 'max-tokens "stopped mid-thinking: max_tokens exhausted")))
 
-     ;; text response — always an error for us; model must call submit_review
-     ((and is-str-resp (not (hutch--result-box-get result-box)))
+     ;; text response — error only if no tools are pending in the same response.
+     ;; Some providers (e.g. DeepSeek) emit prose alongside a tool_call in the
+     ;; final response; we don't want to error on the text and miss the tool.
+     ((and is-str-resp
+           (not (hutch--result-box-get result-box))
+           (not (plist-get info :tool-use)))
       (funcall on-error 'no-submit "model responded with text instead of calling submit_review"))
+
+     ;; text alongside pending tools — no-op, wait for the tool result
+     (is-str-resp nil)
 
      ;; unrecognized response type
      (t
