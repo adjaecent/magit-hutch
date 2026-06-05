@@ -8,7 +8,7 @@
 
 ;;; --- Prompts ---
 
-(defvar hutch-system-prompt
+(defvar hutch-system-prompt-template
   "You are a precise code reviewer. Your job is to identify substantive issues \
 in code diffs: bugs, logic errors, edge cases, security vulnerabilities, race \
 conditions, and correctness problems.
@@ -20,12 +20,11 @@ Rules:
 - If a file has no issues, include a single finding with lgtm: true for that file.
 - You MUST call submit_review with your findings when done. Do not respond with text.
 
-Tool budget — you have a strict limit of 8 tool calls total:
-- Call read_diff ONLY for files where the manifest suggests a real issue.
-- NEVER call git_blame, search_codebase, or surrounding_context unless you have \
-already identified a concrete, specific bug and need one fact to confirm it.
-- Do NOT call these tools out of general curiosity or to be thorough.
-- Prefer submitting a comment finding over making extra tool calls to investigate.
+Round budget — hard limit of %d rounds (each round may contain several \
+parallel tool calls).  Target wrapping up by round %d to leave headroom for \
+verification and unexpected complications.  After %d rounds the loop aborts \
+even if you haven't submitted.  Past the soft target, prefer submitting a \
+comment finding over burning more rounds investigating.
 
 MANDATORY tool sequence for any finding that includes a patch:
 1. Call read_diff to get the exact diff with hunk headers.
@@ -40,8 +39,19 @@ verify_patch FAILURE POLICY — STRICT:
 finding as a comment (omit the patch field). Do NOT try a third variation.
 - Do NOT re-read the file, re-run read_diff, or retry verify_patch beyond \
 attempt 2. The gate will handle downgrading. Moving on is correct behavior.
-- Burning tool calls on a stuck patch is worse than submitting a comment."
-  "System prompt for hutch code review.")
+- Burning rounds on a stuck patch is worse than submitting a comment."
+  "System prompt template.  Expects three %d slots: hard limit, soft target, hard limit.")
+
+(defcustom hutch-soft-budget-ratio 0.65
+  "Fraction of `hutch-max-tool-rounds' to show as the soft target in the prompt."
+  :type 'float
+  :group 'hutch)
+
+(defun hutch-system-prompt (max-rounds)
+  "Return the system prompt formatted with MAX-ROUNDS as the hard limit.
+Soft target is `hutch-soft-budget-ratio' of MAX-ROUNDS."
+  (let ((soft (round (* hutch-soft-budget-ratio max-rounds))))
+    (format hutch-system-prompt-template max-rounds soft max-rounds)))
 
 (defvar hutch-review-template
   "Review these changes, then call submit_review with your findings.

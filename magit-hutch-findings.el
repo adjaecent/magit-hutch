@@ -10,21 +10,37 @@
 (defconst hutch--valid-finding-types '(lgtm suggestion comment)
   "Valid finding type symbols.")
 
+;;
 ;;     pending
-;;      /   \
-;;    /      \
-;; applied  dismissed
-(defconst hutch--valid-finding-states '(pending applied dismissed)
+;;         ↑
+;;       /  \
+;;     /     \
+;;    ↓       ↓
+;;  queued    dismissed
+;;   |    \
+;;  |      \
+;; |        \
+;; ↓         ↓
+;; applied  invalid
+(defconst hutch--valid-finding-states '(pending queued applied dismissed invalid)
   "Valid finding state symbols.")
 
+(defconst hutch--valid-finding-transitions
+  '((pending   . (queued dismissed))
+    (queued    . (pending applied invalid))
+    (applied   . ())
+    (invalid   . ())
+    (dismissed . ()))
+  "Allowed (CUR-STATE . (NEW-STATE ...)) transitions.")
+
 (defun hutch--finding-state-transition (finding state)
-  "Transition FINDING to STATE.  Only 'pending findings can move ahead."
+  "Transition FINDING to STATE if the move is allowed.
+Returns the finding (mutated if the transition is allowed; unchanged otherwise)."
   (unless (memq state hutch--valid-finding-states)
     (error "Invalid finding state %s, must be one of %s" state hutch--valid-finding-states))
-  (let ((cur-state (plist-get finding :state)))
-    (when (and (eq cur-state 'pending)
-               (or (eq state 'applied)
-                   (eq state 'dismissed)))
+  (let* ((cur-state (plist-get finding :state))
+         (allowed   (alist-get cur-state hutch--valid-finding-transitions)))
+    (when (memq state allowed)
       (setq finding (plist-put finding :state state)))
     finding))
 
@@ -33,7 +49,8 @@
 TYPE must be one of `hutch--valid-finding-types'."
   (unless (memq type hutch--valid-finding-types)
     (error "Invalid finding type %s, must be one of %s" type hutch--valid-finding-types))
-  (list :type type
+  (list :id (gensym "f-")
+        :type type
         :file file
         :lines lines
         :title title

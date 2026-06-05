@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'magit-hutch-agent)
+(require 'magit-hutch-apply)
 (require 'magit-section)
 (require 'svg-lib)
 
@@ -16,6 +17,7 @@
 (defvar-keymap hutch-mode-map
   :parent   magit-section-mode-map
   "q"       #'quit-window
+  "A"       #'hutch-bulk-apply
   "C-c C-k" #'hutch-cancel-review)
 
 (define-derived-mode hutch-mode magit-section-mode "Hutch"
@@ -25,7 +27,7 @@
 ;; Magit looks up keymaps as `magit-TYPE-section-map' for section type TYPE
 (defvar-keymap magit-review-suggestion-section-map
   :parent magit-section-mode-map
-  "a" #'hutch-suggestion-accept
+  "m" #'hutch-suggestion-queue
   "x" #'hutch-suggestion-reject)
 
 (defvar-keymap magit-review-comment-section-map
@@ -88,10 +90,20 @@ Prefix with an invisible zero-width character to make it play well with transien
   '((t :foreground "#666" :slant italic))
   "Face for dismissed finding titles.")
 
+(defface hutch-finding-queued
+  '((t :weight bold :foreground "#e5c07b"))
+  "Face for queued finding titles (marked for bulk apply).")
+
+(defface hutch-finding-invalid
+  '((t :strike-through t :foreground "#e06c75"))
+  "Face for invalid finding titles (apply failed).")
+
 (defun hutch--state-face (state)
   (pcase state
     ('applied   'hutch-finding-applied)
-    ('dismissed 'hutch-finding-dismissed)))
+    ('dismissed 'hutch-finding-dismissed)
+    ('queued    'hutch-finding-queued)
+    ('invalid   'hutch-finding-invalid)))
 
 ;;; --- Section inserters ---
 
@@ -191,72 +203,79 @@ Prefix with an invisible zero-width character to make it play well with transien
           (hutch--insert-finding finding longest-width))))
     (insert "\n")))
 
-;;; --- Accept / reject ---
-
-(defun hutch--git-apply-check (patch directory)
-  "Dry-run PATCH with git apply --check in DIRECTORY.  Return t if clean."
-  (let ((default-directory directory))
-    (zerop (with-temp-buffer
-             (insert patch "\n")
-             (call-process-region (point-min) (point-max)
-                                  "git" nil t nil
-                                  "apply" "--check" "--cached" "-")))))
-
-(defun hutch--git-apply (patch directory)
-  "Apply PATCH with git apply in DIRECTORY."
-  (let ((default-directory directory))
-    (with-temp-buffer
-      (insert patch "\n")
-      (call-process-region (point-min) (point-max)
-                           "git" nil t nil
-                           "apply" "--index" "-"))))
-
-(defun hutch--revert-file-buffer (file directory)
-  "Revert the buffer visiting FILE under DIRECTORY, if any."
-  (when-let* ((full-path (expand-file-name file directory))
-              (buf (find-buffer-visiting full-path)))
-    (with-current-buffer buf
-      (revert-buffer t t t))))
-
-(defun hutch--hide-section (section buf)
-  "Collapse SECTION in BUF."
-  (with-current-buffer buf
-    (let ((inhibit-read-only t))
-      (magit-section-hide section))))
-
-(defun hutch-suggestion-accept ()
-  "Accept the suggestion at point -- apply the patch via git apply."
-  (interactive)
-  (when-let* ((section (magit-current-section))
-              (value (oref section value))
-              (patch (plist-get value :patch))
-              (file (plist-get value :file))
-              (state (plist-get value :state))
-              (lines-str (plist-get value :lines))
-              (root (magit-toplevel)))
-    (cond
-     ((not (eq state 'pending))
-      (message "Already %s" (plist-get value :state)))
-     ((not (hutch--git-apply-check patch root))
-      (message "Patch does not apply cleanly to %s -- file may have changed" file))
-     ((y-or-n-p (format "Apply fix to %s:%s? " file lines-str))
-      (hutch--git-apply patch root)
-      (hutch--revert-file-buffer file root)
-      (message "Applied fix to %s:%s" file lines-str)
-      (hutch--finding-state-transition value 'applied)
-      (hutch--render-buffer (current-buffer))))))
+;;; --- Queue / dismiss ---
 
 (defun hutch-suggestion-reject ()
-  "Reject the suggestion at point and collapse it."
+  "Dismiss the suggestion at point.
+Only pending findings can be dismissed; once queued, the only exits are
+'applied or 'invalid via `hutch-bulk-apply'."
   (interactive)
   (when-let* ((section (magit-current-section))
               (value (oref section value))
               (state (plist-get value :state)))
     (if (not (eq state 'pending))
-        (message "Already %s" (plist-get value :state))
-      (message "Suggestion dismissed.")
+        (message "Already %s; cannot dismiss" state)
       (hutch--finding-state-transition value 'dismissed)
-      (hutch--render-buffer (current-buffer)))))
+      (hutch--render-buffer (current-buffer))
+      (message "Suggestion dismissed."))))
+
+(defun hutch-suggestion-queue ()
+  "Toggle the queued state of the suggestion at point.
+Pending ↔ queued.  Bulk apply (A) consumes queued findings."
+  (interactive)
+  (when-let* ((section (magit-current-section))
+              (value (oref section value))
+              (state (plist-get value :state)))
+    (pcase state
+      ('pending
+       (hutch--finding-state-transition value 'queued)
+       (hutch--render-buffer (current-buffer))
+       (message "Queued."))
+      ('queued
+       (hutch--finding-state-transition value 'pending)
+       (hutch--render-buffer (current-buffer))
+       (message "Unqueued."))
+      (_ (message "Already %s; cannot queue" state)))))
+
+;;; --- Bulk apply ---
+
+(defun hutch--scope-at-point ()
+  "Return the scope plist for the review-group section enclosing point."
+  (let ((section (magit-current-section)))
+    (while (and section (not (eq (oref section type) 'review-group)))
+      (setq section (oref section parent)))
+    (when section
+      (let ((label (oref section value)))
+        (seq-find (lambda (s) (string= (hutch--scope-label s) label))
+                  hutch--scopes)))))
+
+(defun hutch-bulk-apply ()
+  "Apply all queued findings in the scope at point.
+
+Aborts if the scope's index has changed since the review was generated."
+  (interactive)
+  (let* ((scope    (hutch--scope-at-point))
+         (label    (and scope (hutch--scope-label scope)))
+         (result   (and label (cdr (assoc label hutch--results #'equal))))
+         (findings (and result (plist-get result :findings))))
+    (cond
+     ((null scope)
+      (message "No review scope at point"))
+     ((not findings)
+      (message "No findings in this scope"))
+     ((not (equal (plist-get result :hash)
+                  (hutch--scope-hash-current scope)))
+      (message "Staged content changed since review — please re-run hutch"))
+     ((not (seq-some (lambda (f) (eq (plist-get f :state) 'queued)) findings))
+      (message "Nothing queued; mark suggestions with `m' first"))
+     (t
+      (hutch--apply-bulk findings scope (magit-toplevel))
+      (hutch--render-buffer (current-buffer))
+      (let ((applied (seq-count (lambda (f) (eq (plist-get f :state) 'applied))
+                                findings))
+            (invalid (seq-count (lambda (f) (eq (plist-get f :state) 'invalid))
+                                findings)))
+        (message "Bulk apply: %d applied, %d invalid" applied invalid))))))
 
 ;;; --- Buffer and entry point ---
 

@@ -61,7 +61,6 @@ TOKENS is an optional (input . output) cons cell."
   (hutch--log "llm" "error for %s: %s: %s" (plist-get scope :scope) type msg)
   (hutch--make-result :error scope nil (hutch--sanitize-emsg type msg)))
 
-
 (defun hutch--accumulate-tokens (token-box info round)
   "Add token counts from INFO into TOKEN-BOX for ROUND."
   (let ((in  (plist-get info :input-tokens))
@@ -178,7 +177,8 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
          (round-box     (hutch--make-result-box))
          (tools         (hutch--make-tools scope result-box))
          (user-prompt   (format hutch-review-template (plist-get scope :manifest)))
-         (prompt        (list :user user-prompt :system hutch-system-prompt))
+         (prompt        (list :user user-prompt
+                               :system (hutch-system-prompt hutch-max-tool-rounds)))
          (gptel-backend hutch-backend)
          (gptel-model   (car (gptel-backend-models hutch-backend)))
          (gptel-tools   tools))

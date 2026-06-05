@@ -38,6 +38,14 @@
       (insert prefix)
       (buffer-string))))
 
+(defun hutch--parse-lines (lines)
+  "Parse :lines string into (START . END) cons. Single \"45\" → (45 . 45)."
+  (when (and lines (stringp lines))
+    (if (string-match "\\`\\([0-9]+\\)\\(?:-\\([0-9]+\\)\\)?\\'" lines)
+        (let ((start (string-to-number (match-string 1 lines)))
+              (end   (match-string 2 lines)))
+          (cons start (if end (string-to-number end) start))))))
+
 ;;; --- Logging ---
 
 (defconst hutch--log-buffer "*hutch-log*"

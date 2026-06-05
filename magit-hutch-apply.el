@@ -1,0 +1,67 @@
+;;; magit-hutch-apply.el --- Bulk-apply harness -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;;
+;; Bulk-apply harness — owns the data orchestration AND the git I/O.
+;; The UI just identifies the scope at point and calls `hutch--apply-bulk'.
+;;
+;; Flow:
+;;   1. Filter findings to :state 'queued
+;;   2. Sort bottom-up per file (so earlier applies don't shift line
+;;      numbers for later ones)
+;;   3. For each: verify, apply, revert any visiting buffer
+;;   4. Flip :state to 'applied (success) or 'invalid (failure)
+;;
+;; Callers should hash-check the scope (see `hutch--scope-hash-current' in
+;; git.el) before invoking bulk apply, to guard against the index changing
+;; between review and apply.
+
+;;; Code:
+
+(require 'seq)
+(require 'magit-hutch-utils)
+(require 'magit-hutch-git)
+(require 'magit-hutch-findings)
+
+(defun hutch--apply-candidates (findings)
+  "Return FINDINGS with :state 'queued, sorted for bottom-up application.
+
+Within each file, candidates are sorted by descending start line so earlier
+applies don't shift line numbers for later ones.  Across files, order is
+unspecified."
+  (seq-sort-by
+   (lambda (f)
+     (cons (plist-get f :file)
+           (- (car (or (hutch--parse-lines (plist-get f :lines))
+                       '(0 . 0))))))
+   (lambda (a b)
+     (if (string= (car a) (car b))
+         (< (cdr a) (cdr b))
+       (string< (car a) (car b))))
+   (seq-filter
+    (lambda (f) (eq (plist-get f :state) 'queued))
+    findings)))
+
+(defun hutch--apply-bulk (findings scope root)
+  "Apply each queued finding in FINDINGS bottom-up per file under ROOT for SCOPE.
+
+Mutates findings in place: 'queued → 'applied on success, 'queued → 'invalid
+on failure.  Returns FINDINGS for chaining.
+
+Does not revert visiting buffers; if the user had the file open with unsaved
+edits, Emacs will warn at next save."
+  (let ((default-directory root))
+    (dolist (f (hutch--apply-candidates findings))
+      (let* ((result (hutch--patch-apply scope (plist-get f :patch)))
+             (ok    (car result))
+             (out   (cdr result)))
+        (if ok
+            (hutch--finding-state-transition f 'applied)
+          (hutch--finding-state-transition f 'invalid)
+          (hutch--log "apply" "invalid %s:%s — %s"
+                      (plist-get f :file) (plist-get f :lines) out)))))
+  findings)
+
+(provide 'magit-hutch-apply)
+
+;;; magit-hutch-apply.el ends here

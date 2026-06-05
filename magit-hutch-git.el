@@ -100,17 +100,22 @@ Return the diff string or nil if empty."
                  (buffer-string))))
     (and diff (not (string-empty-p diff)) diff)))
 
-(defun hutch--patch-apply-check (scope patch)
-  "Run git apply --check for SCOPE on PATCH.
-Return (OK . OUTPUT) where OK is t/nil and OUTPUT is git's stderr on failure."
+(defun hutch--patch-apply (scope patch &optional check)
+  "Apply PATCH for SCOPE.  When CHECK is non-nil, dry-run (git apply --check).
+For staged scope, applies to the index (--cached); for branch/unpushed
+scopes, applies to the working tree.
+Return (OK . OUTPUT) where OUTPUT is git's stderr on failure."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
          (staged (and (null head) (null base)))
          (normalized (if (string-suffix-p "\n" patch) patch (concat patch "\n")))
          (temp-patch (make-temp-file "hutch-patch-" nil ".diff"))
-         (args (if staged
-                   (list "apply" "--check" "--cached" "--" temp-patch)
-                 (list "apply" "--check" "--" temp-patch))))
+         (args (delq nil
+                     (list "apply"
+                           (when check  "--check")
+                           (when staged "--cached")
+                           "--"
+                           temp-patch))))
     (with-temp-file temp-patch (insert normalized))
     (prog1
         (with-temp-buffer
@@ -163,6 +168,14 @@ Return the output of git blame"
               (list (when (memq :branch   hutch-scopes) (hutch--collect-branch))
                     (when (memq :unpushed hutch-scopes) (hutch--collect-unpushed))
                     (when (memq :staged   hutch-scopes) (hutch--collect-staged)))))
+
+(defun hutch--scope-hash-current (scope)
+  "Recollect SCOPE and return its current :hash (or nil if scope no longer exists)."
+  (let ((fresh (pcase (plist-get scope :scope)
+                 (:staged   (hutch--collect-staged))
+                 (:unpushed (hutch--collect-unpushed))
+                 (:branch   (hutch--collect-branch)))))
+    (and fresh (plist-get fresh :hash))))
 
 (provide 'magit-hutch-git)
 

@@ -75,7 +75,7 @@ Optionally restrict to START-LINE..END-LINE."
 Returns \"OK\" on success or \"FAIL: <git error>\" on failure."
   (with-cur-dir
    root
-   (let* ((result (hutch--patch-apply-check scope patch))
+   (let* ((result (hutch--patch-apply scope patch t))
           (ok    (car result))
           (out   (cdr result)))
      (hutch--log "tool" "verify_patch: %d chars [%s] → %s"

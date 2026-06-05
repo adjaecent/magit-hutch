@@ -42,7 +42,7 @@
                   (title (plist-get f :title))
                   (desc  (plist-get f :desc)))
               (if (and (eq type 'suggestion)
-                       (not (car (hutch--patch-apply-check scope patch))))
+                       (not (car (hutch--patch-apply scope patch t))))
                   (progn
                     (hutch--log "gate" "patch: downgrading %s:%s to comment" file lines)
                     (hutch--make-finding 'comment
