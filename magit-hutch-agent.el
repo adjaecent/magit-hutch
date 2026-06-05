@@ -73,7 +73,7 @@ TOKENS is an optional (input . output) cons cell."
          (cons (when (or in (car cur)) (+ (or (car cur) 0) (or in 0)))
                (when (or out (cdr cur)) (+ (or (cdr cur) 0) (or out 0)))))))))
 
-(defun hutch--agent-request (response info on-done on-error result-box token-box round-box max-rounds)
+(defun hutch--agent-request (response info on-done on-error on-progress result-box token-box round-box max-rounds)
   "gptel callback that drives one step of the tool-use loop.
 RESPONSE and INFO are the gptel callback arguments.  ON-DONE is called
 when RESULT-BOX is set (submit_review fired).  ON-ERROR is called with
@@ -98,6 +98,7 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
      (is-tool-resp
       (hutch--accumulate-tokens token-box info round)
       (hutch--result-box-set round-box (1+ round))
+      (when on-progress (funcall on-progress (1+ round) max-rounds))
       (cond
        ((hutch--result-box-get result-box)
         (condition-case err
@@ -129,21 +130,24 @@ errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
                (format "model stopped unexpectedly (response type: %s)"
                        (or evt-resp response)))))))
 
-(defun hutch--agent (prompt on-done on-error result-box token-box cancel-box round-box max-rounds)
+(defun hutch--agent (prompt on-done on-error on-progress result-box token-box cancel-box round-box max-rounds)
   "Start a gptel request with PROMPT and a callback that drives the tool-use loop.
 Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure.
+ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round.
 Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
   (->>
    (gptel-request (plist-get prompt :user)
-                  :system (plist-get prompt :system)
-                  :callback (lambda (response info) (hutch--agent-request response
-                                                                          info
-                                                                          on-done
-                                                                          on-error
-                                                                          result-box
-                                                                          token-box
-                                                                          round-box
-                                                                          max-rounds)))
+     :system (plist-get prompt :system)
+     :callback (lambda (response info)
+                 (hutch--agent-request response
+                                       info
+                                       on-done
+                                       on-error
+                                       on-progress
+                                       result-box
+                                       token-box
+                                       round-box
+                                       max-rounds)))
    (hutch--result-box-set cancel-box)))
 
 (defun hutch--agent-cancel (cancel-box)
@@ -168,8 +172,10 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
   "Handle review error for SCOPE.  Call CALLBACK with error result from TYPE and MSG."
   (funcall callback (hutch--make-error-result scope type msg)))
 
-(defun hutch--review-scope (scope callback cancel-box)
-  "Review SCOPE asynchronously with tool use.  Call CALLBACK with a result plist."
+(defun hutch--review-scope (scope on-done on-progress cancel-box)
+  "Review SCOPE asynchronously with tool use.
+Call ON-DONE with a result plist when finished.
+ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round."
   (unless hutch-backend
     (error "hutch-backend is not set"))
   (let* ((result-box    (hutch--make-result-box))
@@ -178,26 +184,31 @@ Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
          (tools         (hutch--make-tools scope result-box))
          (user-prompt   (format hutch-review-template (plist-get scope :manifest)))
          (prompt        (list :user user-prompt
-                               :system (hutch-system-prompt hutch-max-tool-rounds)))
+                              :system (hutch-system-prompt hutch-max-tool-rounds)))
          (gptel-backend hutch-backend)
          (gptel-model   (car (gptel-backend-models hutch-backend)))
-         (gptel-tools   tools))
+         (gptel-tools   tools)
+         (on-progress   (when on-progress
+                          (lambda (current max) (funcall on-progress scope current max)))))
     (hutch--agent
      prompt
      (lambda ()
        (hutch--agent-cancel cancel-box)
-       (hutch--review-on-done scope result-box token-box callback))
+       (hutch--review-on-done scope result-box token-box on-done))
      (lambda (type msg)
        (hutch--agent-cancel cancel-box)
-       (hutch--review-on-error scope callback type msg))
+       (hutch--review-on-error scope on-done type msg))
+     on-progress
      result-box
      token-box
      cancel-box
      round-box
      hutch-max-tool-rounds)))
 
-(defun hutch--review (scopes callback)
-  "Review SCOPES with caching.  Call CALLBACK with each result plist as it arrives.
+(defun hutch--review (scopes on-done on-progress)
+  "Review SCOPES with caching.
+Call ON-DONE with each result plist as it arrives (cache hits included).
+Call ON-PROGRESS as (SCOPE CURRENT MAX) after each tool round (uncached only).
 Returns a list of cancel-callbacks to cancel reviews for SCOPES."
   (hutch--log "review" "found %d scopes" (length scopes))
   (mapcar (lambda (scope)
@@ -208,11 +219,12 @@ Returns a list of cancel-callbacks to cancel reviews for SCOPES."
               (if-let ((cached (hutch--cache-lookup hash)))
                   (progn
                     (hutch--log "review" "cache hit for %s %s" scope-key desc)
-                    (funcall callback cached)
+                    (funcall on-done cached)
                     (lambda () nil))
                 (hutch--log "review" "dispatching %s %s" scope-key desc)
                 (hutch--review-scope scope
-                                     (hutch--write-through-cache-callback hash callback)
+                                     (hutch--write-through-cache-callback hash on-done)
+                                     on-progress
                                      cancel-scope-box)
                 (lambda () (hutch--agent-cancel cancel-scope-box)))))
           scopes))

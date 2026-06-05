@@ -275,7 +275,7 @@ Aborts if the scope's index has changed since the review was generated."
       (message "Nothing queued; mark suggestions with `m' first"))
      (t
       (hutch--apply-bulk findings scope (magit-toplevel))
-      ;; Our own applies legitimately change the index, so the next bulk-apply
+      ;; Our own applications legitimately change the index, so the next bulk-apply
       ;; would trip the hash guard.  Refresh to the post-apply hash so the
       ;; guard still detects EXTERNAL changes, not changes we just made.
       (when-let ((new-hash (hutch--scope-hash-current scope)))
@@ -292,8 +292,8 @@ Aborts if the scope's index has changed since the review was generated."
 (defvar-local hutch--scopes nil "Scopes being reviewed.")
 (defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
 (defvar-local hutch--cancel-fns nil "List of cancel functions for in-progress reviews.")
-(defvar-local hutch--discarded nil
-  "When non-nil, this review is discarded — all interactive commands refuse.")
+(defvar-local hutch--progress nil "Alist of (SCOPE-LABEL . (CURRENT . MAX)) for in-flight scopes.")
+(defvar-local hutch--discarded nil "When non-nil, review is discarded — all commands refuse.")
 
 (defun hutch--ensure-active ()
   "Signal an error if the review is discarded.
@@ -403,9 +403,11 @@ runs next time."
                  (display (hutch--scope-display-label scope result)))
             (cond
              ((null result)
-              (insert (format "%s Reviewing %s...\n"
+              (insert (format "%s Reviewing %s ⏳ "
                               (hutch--scope-emoji scope)
-                              (hutch--scope-name scope))))
+                              (hutch--scope-name scope)))
+              (hutch--insert-progress label)
+              (insert "\n"))
              ((eq (plist-get result :status) :cancelled)
               (insert (format "%s Reviewing %s — cancelled ❌.\n\n"
                               (hutch--scope-emoji scope)
@@ -425,6 +427,34 @@ runs next time."
       (push (cons label result) hutch--results))
     (hutch--render-buffer buf)))
 
+(defun hutch--insert-progress (label)
+  "Insert the in-progress indicator for scope LABEL at point.
+Renders an svg progress bar when a progress entry exists, falling back
+to \"...\" before the first tick arrives."
+  (when-let ((p (cdr (assoc label hutch--progress #'equal))))
+    (insert (propertize " " 'display
+                        (svg-lib-progress-bar
+                         (min 1.0 (/ (float (car p)) (cdr p))))))))
+
+(defun hutch--render-progress (buf scope current max)
+  "Record progress for SCOPE in BUF and re-render."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (setf (alist-get (hutch--scope-label scope)
+                       hutch--progress
+                       nil
+                       nil
+                       #'equal)
+            (cons current max))
+      (hutch--render-buffer buf))))
+
+(defun hutch--render-remove-progress (buf label)
+  "Drop the progress entry for LABEL in BUF.  Caller re-renders."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (setq hutch--progress
+            (assoc-delete-all label hutch--progress)))))
+
 ;;;###autoload
 (defun hutch-magit-review ()
   "Review change with AI.  Show sections for branch, unpushed, and staged diffs."
@@ -439,7 +469,12 @@ runs next time."
         (hutch--render-buffer buf)
         (pop-to-buffer buf)
         (setq hutch--cancel-fns
-              (hutch--review scopes (lambda (result) (hutch--render-result buf result))))))))
+              (hutch--review scopes
+                             (lambda (result)
+                               (hutch--render-remove-progress buf (hutch--scope-label result))
+                               (hutch--render-result buf result))
+                             (lambda (scope current max)
+                               (hutch--render-progress buf scope current max))))))))
 
 (provide 'magit-hutch-ui)
 
