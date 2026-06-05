@@ -18,6 +18,7 @@
   :parent   magit-section-mode-map
   "q"       #'quit-window
   "A"       #'hutch-bulk-apply
+  "D"       #'hutch-discard-review
   "C-c C-k" #'hutch-cancel-review)
 
 (define-derived-mode hutch-mode magit-section-mode "Hutch"
@@ -211,6 +212,7 @@ Prefix with an invisible zero-width character to make it play well with transien
 Only pending findings can be dismissed; once queued, the only exits are
 'applied or 'invalid via `hutch-bulk-apply'."
   (interactive)
+  (hutch--ensure-active)
   (when-let* ((section (magit-current-section))
               (value (oref section value))
               (state (plist-get value :state)))
@@ -224,6 +226,7 @@ Only pending findings can be dismissed; once queued, the only exits are
   "Toggle the queued state of the suggestion at point.
 Pending ↔ queued.  Bulk apply (A) consumes queued findings."
   (interactive)
+  (hutch--ensure-active)
   (when-let* ((section (magit-current-section))
               (value (oref section value))
               (state (plist-get value :state)))
@@ -255,6 +258,7 @@ Pending ↔ queued.  Bulk apply (A) consumes queued findings."
 
 Aborts if the scope's index has changed since the review was generated."
   (interactive)
+  (hutch--ensure-active)
   (let* ((scope    (hutch--scope-at-point))
          (label    (and scope (hutch--scope-label scope)))
          (result   (and label (cdr (assoc label hutch--results #'equal))))
@@ -271,6 +275,11 @@ Aborts if the scope's index has changed since the review was generated."
       (message "Nothing queued; mark suggestions with `m' first"))
      (t
       (hutch--apply-bulk findings scope (magit-toplevel))
+      ;; Our own applies legitimately change the index, so the next bulk-apply
+      ;; would trip the hash guard.  Refresh to the post-apply hash so the
+      ;; guard still detects EXTERNAL changes, not changes we just made.
+      (when-let ((new-hash (hutch--scope-hash-current scope)))
+        (plist-put result :hash new-hash))
       (hutch--render-buffer (current-buffer))
       (let ((applied (seq-count (lambda (f) (eq (plist-get f :state) 'applied))
                                 findings))
@@ -283,6 +292,28 @@ Aborts if the scope's index has changed since the review was generated."
 (defvar-local hutch--scopes nil "Scopes being reviewed.")
 (defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
 (defvar-local hutch--cancel-fns nil "List of cancel functions for in-progress reviews.")
+(defvar-local hutch--discarded nil
+  "When non-nil, this review is discarded — all interactive commands refuse.")
+
+(defun hutch--ensure-active ()
+  "Signal an error if the review is discarded.
+Call from any interactive command that mutates state."
+  (when hutch--discarded
+    (user-error "Review is discarded — no further actions allowed")))
+
+(defun hutch-discard-review ()
+  "Mark this review as discarded.  Locks all further interaction.
+Evicts any cached results for this review's scopes so a fresh review
+runs next time."
+  (interactive)
+  (cond
+   (hutch--discarded (message "Already discarded."))
+   ((y-or-n-p "Discard this review? Findings will be frozen for reference. ")
+    (setq hutch--discarded t)
+    (dolist (scope hutch--scopes)
+      (hutch--cache-evict (plist-get scope :hash)))
+    (hutch--render-buffer (current-buffer))
+    (message "Review discarded."))))
 
 (defface hutch-badge-tokens
   '((t :foreground "#888888" :background "#2d2d2d"))
@@ -361,7 +392,9 @@ Aborts if the scope's index has changed since the review was generated."
       (magit-insert-section (review-root)
         (magit-insert-heading
           (propertize "magit-hutch: code review"
-                      'font-lock-face 'magit-section-heading))
+                      'font-lock-face 'magit-section-heading)
+          (when hutch--discarded
+            (propertize " [DISCARDED]" 'font-lock-face 'hutch-finding-invalid)))
         (dolist (scope hutch--scopes)
           (let* ((label (hutch--scope-label scope))
                  (entry (assoc label hutch--results #'equal))

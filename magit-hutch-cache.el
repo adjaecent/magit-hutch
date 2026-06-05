@@ -33,6 +33,16 @@
                                 (cons new-entry))))
     (with-temp-file cache-file (prin1 new-list (current-buffer)))))
 
+(defun hutch--cache-evict (hash)
+  "Remove the cache entry for HASH, if any."
+  (let ((cache-file (hutch--cache-file)))
+    (when (file-exists-p cache-file)
+      (let* ((alist (with-temp-buffer
+                      (insert-file-contents cache-file)
+                      (ignore-errors (read (current-buffer)))))
+             (pruned (assoc-delete-all hash alist)))
+        (with-temp-file cache-file (prin1 pruned (current-buffer)))))))
+
 (defun hutch--write-through-cache-callback (hash callback)
   "Return a callback that caches successful result against HASH before calling CALLBACK."
   (let ((cache-file (hutch--cache-file)))
