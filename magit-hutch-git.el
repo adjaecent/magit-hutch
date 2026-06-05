@@ -102,8 +102,11 @@ Return the diff string or nil if empty."
 
 (defun hutch--patch-apply (scope patch &optional check)
   "Apply PATCH for SCOPE.  When CHECK is non-nil, dry-run (git apply --check).
-For staged scope, applies to the index (--cached); for branch/unpushed
-scopes, applies to the working tree.
+For staged scope, applies to BOTH the index and working tree (--index);
+for branch/unpushed scopes, applies to the working tree only.
+With --index, working tree and index stay in sync — but if the user has
+unstaged edits in the file, the apply will fail (and the finding is
+marked 'invalid).
 Return (OK . OUTPUT) where OUTPUT is git's stderr on failure."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
@@ -113,7 +116,7 @@ Return (OK . OUTPUT) where OUTPUT is git's stderr on failure."
          (args (delq nil
                      (list "apply"
                            (when check  "--check")
-                           (when staged "--cached")
+                           (when staged "--index")
                            "--"
                            temp-patch))))
     (with-temp-file temp-patch (insert normalized))
