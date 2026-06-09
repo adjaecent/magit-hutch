@@ -19,15 +19,38 @@
      ,@body))
 
 (defun hutch--tool-search-codebase (root pattern &optional file-glob)
-  "Search the codebase for PATTERN using git grep.  Optionally filter by FILE-GLOB."
+  "Search the codebase for PATTERN using git grep.  Optionally filter by FILE-GLOB.
+PATTERN is extended POSIX regex (use \\=`|\\=' for alternation,
+\\=`()\\=' for grouping).  FILE-GLOB is a git pathspec; if it contains
+\\=`**\\=' magic-glob syntax is applied automatically."
   (with-cur-dir
    root
    (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
-   (let ((result (with-temp-buffer
-                   (apply #'magit-git-insert "grep" "-n" "-e" pattern "--"
-                          (if file-glob (list file-glob) (list ".")))
-                   (buffer-string))))
-     (hutch--log "tool" "search_codebase: %d chars returned" (length result))
+   (let* ((pathspec (cond
+                     ((null file-glob) ".")
+                     ;; Plain `**/*.java' fails as a literal pathspec;
+                     ;; wrap in `:(glob)' magic so it actually matches.
+                     ((and (string-match-p "\\*\\*" file-glob)
+                           (not (string-prefix-p ":(" file-glob)))
+                      (concat ":(glob)" file-glob))
+                     (t file-glob)))
+          (raw (with-temp-buffer
+                 (magit-git-insert "grep" "-n" "-E" "-e" pattern "--" pathspec)
+                 (buffer-string)))
+          ;; Cap output so a too-broad regex doesn't blow up the model's
+          ;; context or drown the per-PR log.  Return up to ~80 matches
+          ;; and tell the model to narrow if it wants more.
+          (lines (split-string raw "\n" t))
+          (max-lines 80)
+          (truncated? (> (length lines) max-lines))
+          (kept (seq-take lines max-lines))
+          (result (string-join kept "\n"))
+          (result (if truncated?
+                      (format "%s\n[... truncated: %d/%d matches shown. Narrow with a more specific pattern or a file-glob.]"
+                              result max-lines (length lines))
+                    result)))
+     (hutch--log "tool" "search_codebase: %d chars returned (%d/%d matches)"
+                 (length result) (length kept) (length lines))
      (if (string-empty-p result) "No matches found." result))))
 
 (defun hutch--tool-read-file (root scope path &optional start-line end-line)
@@ -108,7 +131,7 @@ Returns up to DEPTH levels (default 1), innermost first."
 
 ;;; --- Tool definitions ---
 
-(defcustom hutch-enabled-tools '(search-codebase git-log git-blame surrounding-context)
+(defcustom hutch-enabled-tools '(search-codebase surrounding-context)
   "Optional tools available to the review agent.
 The core tools (read-diff, verify-patch, submit-review) are always included."
   :type '(set (const :tag "Search codebase" search-codebase)
@@ -192,15 +215,15 @@ something not visible in the diff itself."
               :function (lambda (pattern &optional file-glob)
                           (hutch--tool-search-codebase root pattern file-glob))
               :name "search_codebase"
-              :description "Search the codebase for a pattern using git grep. \
+              :description "Search the codebase using git grep (extended regex). \
 Returns matching lines with file paths and line numbers. \
 Use this to find callers, references, imports, or any text pattern."
               :args '((:name "pattern"
                              :type string
-                             :description "Regex pattern to search for")
+                             :description "Extended regex pattern. Use | for alternation, () for grouping, \\( to escape literals. Example: 'foo|bar|baz'.")
                       (:name "file_glob"
                              :type string
-                             :description "Optional glob to filter files (e.g. \"*.py\", \"*.el\")"
+                             :description "Optional file filter. Examples: '*.py', '*.java', '**/*.el'. Recursive globs (**) are handled automatically."
                              :optional t)))))
      (when (memq 'git-log hutch-enabled-tools)
        (list (gptel-make-tool
