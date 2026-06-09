@@ -67,7 +67,7 @@ Diffing the two results, gives a much finer result. Claude caught issues on 9 PR
 
 As a sidenote, these results put Hutch somewhere around the #13 mark on [[https://codereview.withmartian.com/?mode=offline][Martian's Offline Benchmark leaderboard]], which is competitive for a no-memory, single-shot agent.
 
-** Contamination?
+*** Contamination?
 
 =gpt-5.5= cutoff is Dec 2025, and =opus-4.8= cutoff is Jan 2026. The date span of the =40= PRs is from =2023-02= to =2025-07=, which means there are no PRs post-cutoff.
 
