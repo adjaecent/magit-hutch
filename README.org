@@ -15,12 +15,15 @@ These tools are run with baked-in guardrails to not overburden the context lengt
 
 ** Installation
 
-It uses the =gptel= package under the hood, so a =hutch-provider= must be configured beforehand. We recommend using SOTA models only, since the output from cheaper models can be unreliable.
+magit-hutch uses [[https://github.com/karthink/gptel][gptel]] to talk to LLM backends.  Pick an install method
+that handles deps for you (=straight.el=, =elpaca=) — they'll pull in
+=magit=, =gptel=, and =svg-lib= automatically.  We recommend SOTA models
+only, since the output from cheaper models can be unreliable.
 
 *** straight.el
 #+begin_src emacs-lisp
   (use-package magit-hutch
-    :straight (:host github :repo "adjaecent/magit-hutch")
+    :straight (magit-hutch :host github :repo "adjaecent/magit-hutch")
     :config
     (setq hutch-backend
           (gptel-make-anthropic "Claude"
@@ -31,7 +34,7 @@ It uses the =gptel= package under the hood, so a =hutch-provider= must be config
 *** elpaca
 #+begin_src emacs-lisp
   (use-package magit-hutch
-    :ensure (:host github :repo "adjaecent/magit-hutch")
+    :ensure (magit-hutch :host github :repo "adjaecent/magit-hutch")
     :config
     (setq hutch-backend
           (gptel-make-anthropic "Claude"
@@ -39,8 +42,17 @@ It uses the =gptel= package under the hood, so a =hutch-provider= must be config
             :models '(claude-sonnet-4-6))))
 #+end_src
 
-*** package-vc (Emacs 29+ built-in, no extra deps):
+*** package-vc (Emacs 29+ built-in)
+
+=package-vc-install= resolves the =Package-Requires= deps (=gptel=,
+=svg-lib=) via =package-archives=, so MELPA needs to be enabled before
+you call it.  If your config doesn't already include MELPA:
+
 #+begin_src emacs-lisp
+  (require 'package)
+  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+  (package-initialize)
+
   (unless (package-installed-p 'magit-hutch)
     (package-vc-install "https://github.com/adjaecent/magit-hutch"))
 
@@ -52,31 +64,37 @@ It uses the =gptel= package under the hood, so a =hutch-provider= must be config
 #+end_src
 
 *** Manual clone
+
+Install =magit=, =gptel=, and =svg-lib= via your usual package manager,
+then add magit-hutch to your =load-path=:
+
 #+begin_src emacs-lisp
   (add-to-list 'load-path "~/path/to/magit-hutch")
   (require 'magit-hutch)
-  ;; then install magit, gptel, svg-lib, dash via your usual mechanism
-  (setq hutch-backend ...)
+  (setq hutch-backend
+        (gptel-make-anthropic "Claude"
+          :key (getenv "ANTHROPIC_API_KEY")
+          :models '(claude-sonnet-4-6)))
 #+end_src
 
-** Backend configuration
+** Backend examples
+
+Any =gptel-make-*= backend works for =hutch-backend=.  A few:
+
 #+begin_src emacs-lisp
   ;; OpenAI
-  (gptel-make-openai "OpenAI" :key (getenv "OPENAI_API_KEY") :models '(gpt-5.5))
+  (setq hutch-backend
+        (gptel-make-openai "OpenAI"
+          :key (getenv "OPENAI_API_KEY")
+          :models '(gpt-5.5)))
 
-  ;; OpenRouter (gateway)
-  (gptel-make-openai "OpenRouter"
-    :host "openrouter.ai" :endpoint "/api/v1/chat/completions"
-    :key (getenv "OPENROUTER_API_KEY")
-    :models '(deepseek/deepseek-chat))
-
-(use-package magit-hutch
-  :straight (:local-repo "/Users/kitallis/Code/adjaecent/magit-hutch")
-  :config
-  (require 'llm-claude)
-  (setq hutch-provider
-        (make-llm-claude :key (getenv "ANTHROPIC_API_KEY")
-                         :chat-model "claude-sonnet-4-5-20250929")))
+  ;; OpenRouter (gateway for many models, e.g. DeepSeek)
+  (setq hutch-backend
+        (gptel-make-openai "OpenRouter"
+          :host "openrouter.ai"
+          :endpoint "/api/v1/chat/completions"
+          :key (getenv "OPENROUTER_API_KEY")
+          :models '(deepseek/deepseek-chat)))
 #+end_src
 
 ** Configuration
@@ -95,8 +113,10 @@ It uses the =gptel= package under the hood, so a =hutch-provider= must be config
   (setq hutch-scopes '(:staged :branch))
   ;; number of rounds before the agent gives up, 20 is default
   (setq hutch-max-tool-rounds 20)
-  ;; tools available to use, default: only read_diff
-  (setq hutch-enabled-tools '(read-file search-codebase git-log git-blame surrounding-context)))
+  ;; optional tools the agent can call.  Defaults to (search-codebase
+  ;; surrounding-context).  read-file is opt-in (can blow context),
+  ;; git-log/git-blame are available but disabled by default.
+  (setq hutch-enabled-tools '(read-file search-codebase surrounding-context)))
 
 #+end_src
 
