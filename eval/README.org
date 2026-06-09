@@ -8,7 +8,7 @@ We take the golden comments from Martian's dataset (with the exclusion of =disco
 
 Due to cost reasons, Hutch's findings (across =40= PRs from the dataset) are classified by a single LLM judge (=gpt-5.2=) into: Bug hit, Validity and Noise. This has some reliability limits of single-judge variance and same-family bias. But specifically, and even with Martian and CR-Bench, the classification of /noise/ should be taken more subjectively than /bug hit/ since /noise/ is unanchored, whereas /bug hits/ and /validity/ are anchored to golden comments provided by the dataset.
 
-The results are from two models: =claude-opus-4-8= and =openai-gpt-5.5=. Both =jsonl= files are checked in.
+The results are from two models: =claude-opus-4.8= and =openai-gpt-5-5=. Both =jsonl= files are checked in.
 
 ** Results
 
@@ -59,23 +59,25 @@ The results are from two models: =claude-opus-4-8= and =openai-gpt-5.5=. Both =j
 
 ** Broader analysis
 
-Precision, Recall, and F1 are anchored to the golden set. Usefulness and SNR depend on the judge's noise classification, which is unanchored. Read those as soft signals, not measurements. The default =max-rounds= for Hutch are based on the max average rounds per PR (set to =40=). I find the rounds a more useful metric than wall time for measuring agent effectiveness.
+Precision, Recall, and F1 are anchored to the golden set. Usefulness and SNR depend on the judge's noise classification, which is unanchored. Read those as soft signals, not measurements. The default =max-rounds= for Hutch are based on the max average rounds per PR (set to =40=). Due to network unreliability, the wall time should only be considered indicative.
 
-Due to network unreliability, the wall time should only be considered indicative. The more interesting bits are the number of rounds and tokens consumed (because of =gptel= limitations, we couldn't reliably measure input tokens for these sessions). Opus 4.8 converges in less than half the rounds, and ~60% fewer output tokens per useful finding.
+The more interesting bits are the number of rounds and tokens consumed (because of =gptel= limitations, we couldn't reliably measure input tokens for these sessions). Opus 4.8 converges in less than half the rounds, and ~60% fewer output tokens per useful finding.
 
-Diffing the two results, however, gives a much finer result. Claude caught issues on 9 PRs GPT had completely missed, while GPT was strictly better on 9 different PRs. They have different blindspots. Claude seems to be better at /rescuing/ 0-recall PRs, and GPT is better at /nailing/ perfect-F1 PRs.
+Diffing the two results, gives a much finer result. Claude caught issues on 9 PRs GPT had completely missed, while GPT was strictly better on 9 different PRs. They have different blindspots. Claude seems to be better at /rescuing/ 0-recall PRs, and GPT is better at /nailing/ perfect-F1 PRs. This hints at Hutch possibly union-ing multi-model results in the future (with the cost of extra complexity).
+
+As a sidenote, these results put Hutch somewhere around the #13 mark on [[https://codereview.withmartian.com/?mode=offline][Martian's Offline Benchmark leaderboard]], which is competitive for a no-memory, single-shot agent.
 
 ** Contamination?
 
 =gpt-5.5= cutoff is Dec 2025, and =opus-4.8= cutoff is Jan 2026. The date span of the =40= PRs is from =2023-02= to =2025-07=, which means there are no PRs post-cutoff.
 
-|-------------------+-----+--------------------+---------------------|
-| bucket            | PRs | gpt-5.5 average f1 | opus-4.8 average f1 |
-|-------------------+-----+--------------------+---------------------|
-| older (< 2024-11) |  19 |              46.3% |               54.0% |
-| newer (> 2024-11) |  21 |                30% |               26.4% |
-| Δ                 |     |           -16.3 pp |            -27.6 pp |
-|-------------------+-----+--------------------+---------------------|
+|------------------------------------+-----+--------------------+---------------------|
+| bucket (median PR date is 2024-11) | PRs | gpt-5.5 average f1 | opus-4.8 average f1 |
+|------------------------------------+-----+--------------------+---------------------|
+| older (< 2024-11)                  |  19 |              46.3% |               54.0% |
+| newer (> 2024-11)                  |  21 |                30% |               26.4% |
+| Δ                                  |     |           -16.3 pp |            -27.6 pp |
+|------------------------------------+-----+--------------------+---------------------|
 
 Both models do substantially better on older PRs, which /seems/ consistent with contamination or memorization, but it's hard to be sure.
 
