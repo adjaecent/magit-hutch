@@ -1,17 +1,17 @@
 #+title: magit-hutch: code-review agent for emacs
 
-=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a magit buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
+=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a [magit](https://magit.vc) buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
 It sends a manifest of changed files (not full diffs) and lets the agent fetch what it needs. The agent has access to the following tools:
 
 1. =read_diff= — fetch the full diff for a specific file
-2. =search_codebase= — git grep for patterns
+2. =search_codebase= — git grep (POSIX extended regex) for patterns
 3. =read_file= — read file contents (optionally a line range)
 4. =git_log= — recent commit history for a file
 5. =git_blame= — blame for a file or line range
-6. =surrounding_context= — tree-sitter enclosing definition lookup
+6. =surrounding_context= — Tree-sitter enclosing definition lookup
 
-These tools are run with baked-in guardrails to not overburden the context length. In the future, this could be even tighter by letting the primary agent invoke sub-agents with focussed purposes, possibly in the direction of [[https://arxiv.org/abs/2512.24601][RLMs]].
+Tools are run with baked-in guardrails to not overburden context length. Hutch performs competitively on Martian's offline benchmarks (see eval). Most code review benchmarks tend to focus on human-like comment quality, but hutch prioritizes patch applicability over just comments. Hutch tries hard to create valid, verifiable patches that can be immediately applied to assist the _magit → review → magit_ workflow. Hutch is more valuable to people still hand-writing code, or exclusively using magit to review/stage changes, this adds a piece in those pipelines.
 
 ** Installation
 
@@ -22,46 +22,55 @@ only, since the output from cheaper models can be unreliable.
 
 *** straight.el
 #+begin_src emacs-lisp
-  (use-package magit-hutch
-    :straight (magit-hutch :host github :repo "adjaecent/magit-hutch")
-    :config
-    (setq hutch-backend
-          (gptel-make-anthropic "Claude"
-            :key (getenv "ANTHROPIC_API_KEY")
-            :models '(claude-sonnet-4-6))))
+(use-package magit-hutch
+  :straight (magit-hutch :host github :repo "adjaecent/magit-hutch")
+  :config
+  (setq hutch-backend
+        (gptel-make-anthropic "Claude"
+          :key (getenv "ANTHROPIC_API_KEY")
+          :models '(claude-sonnet-4-6))))
 #+end_src
 
 *** elpaca
 #+begin_src emacs-lisp
-  (use-package magit-hutch
-    :ensure (magit-hutch :host github :repo "adjaecent/magit-hutch")
-    :config
-    (setq hutch-backend
-          (gptel-make-anthropic "Claude"
-            :key (getenv "ANTHROPIC_API_KEY")
-            :models '(claude-sonnet-4-6))))
+(use-package magit-hutch
+  :ensure (magit-hutch :host github :repo "adjaecent/magit-hutch")
+  :config
+  (setq hutch-backend
+        (gptel-make-anthropic "Claude"
+          :key (getenv "ANTHROPIC_API_KEY")
+          :models '(claude-sonnet-4-6))))
 #+end_src
 
 *** package-vc (Emacs 29+ built-in)
 
 =package-vc-install= resolves the =Package-Requires= deps (=gptel=,
-=svg-lib=) via =package-archives=, so MELPA needs to be enabled before
-you call it.  If your config doesn't already include MELPA:
+=svg-lib=) via =package-archives=.  Two requirements: MELPA must be
+enabled, and the package index must be fresh — MELPA only hosts the
+current snapshot, so stale index entries 404 when fetched.
 
 #+begin_src emacs-lisp
-  (require 'package)
-  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-  (package-initialize)
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
 
-  (unless (package-installed-p 'magit-hutch)
-    (package-vc-install "https://github.com/adjaecent/magit-hutch"))
+;; Refresh the index so package-vc resolves to currently-hosted tarballs.
+;; Without this you may see 404s like 'gptel-YYYYMMDD.HHMM.tar Not found'.
+(unless package-archive-contents
+  (package-refresh-contents))
 
-  (with-eval-after-load 'magit-hutch
-    (setq hutch-backend
-          (gptel-make-anthropic "Claude"
-            :key (getenv "ANTHROPIC_API_KEY")
-            :models '(claude-sonnet-4-6))))
+(unless (package-installed-p 'magit-hutch)
+  (package-vc-install "https://github.com/adjaecent/magit-hutch"))
+
+(with-eval-after-load 'magit-hutch
+  (setq hutch-backend
+        (gptel-make-anthropic "Claude"
+          :key (getenv "ANTHROPIC_API_KEY")
+          :models '(claude-sonnet-4-6))))
 #+end_src
+
+If the install still 404s, run =M-x package-refresh-contents= manually
+and retry — that forces a refresh regardless of cached state.
 
 *** Manual clone
 
@@ -69,32 +78,32 @@ Install =magit=, =gptel=, and =svg-lib= via your usual package manager,
 then add magit-hutch to your =load-path=:
 
 #+begin_src emacs-lisp
-  (add-to-list 'load-path "~/path/to/magit-hutch")
-  (require 'magit-hutch)
-  (setq hutch-backend
-        (gptel-make-anthropic "Claude"
-          :key (getenv "ANTHROPIC_API_KEY")
-          :models '(claude-sonnet-4-6)))
+(add-to-list 'load-path "~/path/to/magit-hutch")
+(require 'magit-hutch)
+(setq hutch-backend
+      (gptel-make-anthropic "Claude"
+        :key (getenv "ANTHROPIC_API_KEY")
+        :models '(claude-sonnet-4-6)))
 #+end_src
 
 ** Backend examples
 
-Any =gptel-make-*= backend works for =hutch-backend=.  A few:
+Any =gptel-make-*= backend works for =hutch-backend=.  Following are the recommended models for good quality reviews:
 
 #+begin_src emacs-lisp
-  ;; OpenAI
-  (setq hutch-backend
-        (gptel-make-openai "OpenAI"
-          :key (getenv "OPENAI_API_KEY")
-          :models '(gpt-5.5)))
+;; OpenAI
+(setq hutch-backend
+      (gptel-make-openai "OpenAI"
+        :key (getenv "OPENAI_API_KEY")
+        :models '(gpt-5.5)))
 
-  ;; OpenRouter (gateway for many models, e.g. DeepSeek)
-  (setq hutch-backend
-        (gptel-make-openai "OpenRouter"
-          :host "openrouter.ai"
-          :endpoint "/api/v1/chat/completions"
-          :key (getenv "OPENROUTER_API_KEY")
-          :models '(deepseek/deepseek-chat)))
+;; OpenRouter (gateway for many models, e.g. DeepSeek)
+(setq hutch-backend
+      (gptel-make-openai "OpenRouter"
+        :host "openrouter.ai"
+        :endpoint "/api/v1/chat/completions"
+        :key (getenv "OPENROUTER_API_KEY")
+        :models '(deepseek/deepseek-chat)))
 #+end_src
 
 ** Configuration
@@ -122,7 +131,16 @@ Any =gptel-make-*= backend works for =hutch-backend=.  A few:
 
 ** Usage
 
-From any magit buffer, press =d R= to run a review on your changes.
+|--------------+---------------------+--------------------------------------------|
+| where        | shortcut            | action                                     |
+|--------------+---------------------+--------------------------------------------|
+| magit buffer | =d= followed by =R= | start a review for enabled scopes          |
+| hutch buffer | =C-c C-k=           | cancel review                              |
+| hutch buffer | =m=                 | queue a suggestion to be applied           |
+| hutch buffer | =A=                 | bulk-apply all patch suggestions           |
+| hutch buffer | =x=                 | dismiss a review suggestion (collapses)    |
+| hutch buffer | =TAB=               | open/close a review (and underlying nests) |
+|--------------+---------------------+--------------------------------------------|
 
 ** Roadmap
 
@@ -137,4 +155,4 @@ Instead of hardcoding every tool, expose primitives (git, tree-sitter, file I/O)
 
 ** LLM-usage disclosure
 
-Most of the UI code is written in an AI-assisted way, but carefully examined. The rest of the agent and operational code is largely hand-written.
+Most of the UI and tool code is written in an AI-assisted way, but carefully examined. The rest of the agentic and operational code is largely hand-written.
