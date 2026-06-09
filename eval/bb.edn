@@ -1,5 +1,6 @@
-{:deps {org.babashka/http-client {:mvn/version "0.4.19"}
-        cheshire/cheshire        {:mvn/version "5.13.0"}}
+{:paths ["."]
+ :deps  {org.babashka/http-client {:mvn/version "0.4.19"}
+         cheshire/cheshire        {:mvn/version "5.13.0"}}
  :tasks
  {fetch {:doc  "Download Martian golden_comments to ./golden_comments/"
          :task (shell "bb eval.clj fetch")}
