@@ -1,17 +1,17 @@
 #+title: magit-hutch: code-review agent for emacs
 
-=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a [magit](https://magit.vc) buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
+=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a [[https://magit.vc][magit]] buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
 It sends a manifest of changed files (not full diffs) and lets the agent fetch what it needs. The agent has access to the following tools:
 
 1. =read_diff= — fetch the full diff for a specific file
 2. =search_codebase= — git grep (POSIX extended regex) for patterns
 3. =read_file= — read file contents (optionally a line range)
-4. =git_log= — recent commit history for a file
-5. =git_blame= — blame for a file or line range
-6. =surrounding_context= — Tree-sitter enclosing definition lookup
+4. =surrounding_context= — Tree-sitter enclosing definition lookup
+5. =git_log= — recent commit history for a file
+6. =git_blame= — blame for a file or line range
 
-Tools are run with baked-in guardrails to not overburden context length. Hutch performs competitively on Martian's offline benchmarks (see eval). Most code review benchmarks tend to focus on human-like comment quality, but hutch prioritizes patch applicability over just comments. Hutch tries hard to create valid, verifiable patches that can be immediately applied to assist the _magit → review → magit_ workflow. Hutch is more valuable to people still hand-writing code, or exclusively using magit to review/stage changes, this adds a piece in those pipelines.
+Tools are run with baked-in guardrails to not overburden context length. Hutch performs competitively on Martian's offline benchmarks (see [[/eval/README.org][eval]]). Most code review benchmarks tend to focus on human-like comment quality, but hutch prioritizes patch applicability over just comments. Hutch tries hard to create valid, verifiable patches that can be immediately applied to assist the _magit → review → magit_ workflow. Hutch is more valuable to people still hand-writing code, or exclusively using magit to review/stage changes, this adds a piece in those pipelines.
 
 ** Installation
 
@@ -88,9 +88,15 @@ then add magit-hutch to your =load-path=:
 
 ** Backend examples
 
-Any =gptel-make-*= backend works for =hutch-backend=.  Following are the recommended models for good quality reviews:
+Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommended models for good quality reviews:
 
 #+begin_src emacs-lisp
+;; Anthropic Claude
+(setq hutch-backend
+      (gptel-make-anthropic "Claude"
+        :key (getenv "ANTHROPIC_API_KEY")
+        :models '(claude-opus-4-8)))
+
 ;; OpenAI
 (setq hutch-backend
       (gptel-make-openai "OpenAI"
@@ -103,7 +109,7 @@ Any =gptel-make-*= backend works for =hutch-backend=.  Following are the recomme
         :host "openrouter.ai"
         :endpoint "/api/v1/chat/completions"
         :key (getenv "OPENROUTER_API_KEY")
-        :models '(deepseek/deepseek-chat)))
+        :models '(deepseek/deepseek-v4-pro)))
 #+end_src
 
 ** Configuration
