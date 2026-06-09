@@ -110,7 +110,7 @@
     {:pr_url        src-url
      :findings      findings
      :judgments     judgments
-     :metrics       m
+     :goldens_count (count goldens)
      :rounds        (:rounds stats)
      :input_tokens  (:input-tokens stats)
      :output_tokens (:output-tokens stats)

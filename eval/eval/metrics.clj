@@ -33,7 +33,7 @@ classifications are excluded from totals — they're unjudged, not negative."
         total       (+ bug-hits valid noise)
         useful      (+ bug-hits valid)
         goldens-hit (distinct-goldens-hit judgments)
-        precision   (safe-div bug-hits    total)
+        precision   (safe-div goldens-hit total)
         recall      (safe-div goldens-hit num-goldens)]
     {:bug-hits    bug-hits
      :valid       valid
@@ -107,9 +107,13 @@ classifications are excluded from totals — they're unjudged, not negative."
                      (int (record-avg records :input_tokens)))))
   (print-tok-per-useful records))
 
+(defn- hydrate [r]
+  (assoc r :metrics (compute-metrics (:judgments r) (:goldens_count r))))
+
 (defn print-summary [records]
-  (println "\n=== EVAL SUMMARY ===")
-  (print-counts records)
-  (print-averages records)
-  (println "\n--- Efficiency ---")
-  (print-efficiency records))
+  (let [records (mapv hydrate records)]
+    (println "\n=== EVAL SUMMARY ===")
+    (print-counts records)
+    (print-averages records)
+    (println "\n--- Efficiency ---")
+    (print-efficiency records)))
