@@ -1,31 +1,31 @@
 #+title: magit-hutch: eval analysis
 
-The eval harness is a mix of strategies from [[https://github.com/withmartian/code-review-benchmark][Martian's code review]] benchmark and the [[https://arxiv.org/html/2603.11078v1][CR-bench preprint]]. Most code review benchmarks rely on GitHub PR analysis, but since Hutch is a local-review agent inside emacs we modify the eval harness to work against locally staged or unpushed diffs. Hutch evals run emacs in a batched headless mode to directly capture the results without processing the rendering layer.
+The eval harness is a mix of strategies from [[https://github.com/withmartian/code-review-benchmark][Martian's code review]] benchmark and the [[https://arxiv.org/html/2603.11078v1][CR-Bench preprint]]. Most code review benchmarks rely on GitHub PR analysis, but since Hutch is a local-review agent inside emacs we modify the eval harness to work against locally staged or unpushed diffs. Hutch evals run emacs in a batched headless mode to capture results without running the rendering layer.
 
 ** Methodology
 
 We take the golden comments from Martian's dataset (with the exclusion of =discourse=, since the dataset doesn't map cleanly). Hutch primarily runs as a single-shot LM (no self-improvement or reflexion agent capabilities at the moment) and computes Precision, Recall, Fβ score, Usefulness Rate and SNR (based on CR-Bench).
 
-Due to cost reasons, Hutch's findings (across =40= PRs from the dataset) are classified by a single LLM judge (gpt-5.2) into: Bug hit, Validity and Noise. This has some reliability limits of single-judge variance and same-family bias. But specifically, and even with Martian and CR-Bench, the classification of _noise_ should be taken more subjectively than _bug hit_ since _noise_ is unanchored, whereas _bug hits_ and _validity_ are anchored to golden comments provided by the dataset.
+Due to cost reasons, Hutch's findings (across =40= PRs from the dataset) are classified by a single LLM judge (=gpt-5.2=) into: Bug hit, Validity and Noise. This has some reliability limits of single-judge variance and same-family bias. But specifically, and even with Martian and CR-Bench, the classification of _noise_ should be taken more subjectively than _bug hit_ since _noise_ is unanchored, whereas _bug hits_ and _validity_ are anchored to golden comments provided by the dataset.
 
-The results were run on two models: =claude-opus-4-8= and =openai-gpt-5.5=. Both =jsonl= files are checked in.
+The results are from two models: =claude-opus-4-8= and =openai-gpt-5.5=. Both =jsonl= files are checked in.
 
 ** Results
 
 *** Findings
 
-|---------------------+------------+---------------+-----|
-| Metric              | gpt-5.5    | opus-4.8      | Δ   |
-|---------------------+------------+---------------+-----|
-| PRs evaluated       |         40 |            40 | —   |
-| Total findings      |        112 |           160 | +48 |
-| - Bug hits          |         50 |            64 | +14 |
-| - Valid suggestions |         58 |            92 | +34 |
-| - Noise             |          4 |             4 | —   |
-| Total goldens       |        108 |           108 | —   |
-| - Distinct hit      |         40 |            51 | +11 |
-| - Missed            |         68 |            57 | −11 |
-|---------------------+------------+---------------+-----|
+|-------------------+---------+----------+-----|
+| Metric            | gpt-5.5 | opus-4.8 | Δ   |
+|-------------------+---------+----------+-----|
+| PRs evaluated     |      40 |       40 | —   |
+| Total findings    |     112 |      160 | +48 |
+| Bug hits          |      50 |       64 | +14 |
+| Valid suggestions |      58 |       92 | +34 |
+| Noise             |       4 |        4 | —   |
+| Total goldens     |     108 |      108 | —   |
+| Distinct hit      |      40 |       51 | +11 |
+| Missed            |      68 |       57 | −11 |
+|-------------------+---------+----------+-----|
 
 *** Quality
 
@@ -57,7 +57,7 @@ Precision, Recall, and F1 are anchored to the golden set. Usefulness and SNR dep
 
 Due to network unreliability, the wall time should only be considered indicative. The more interesting bits are the number of rounds and tokens consumed (because of =gptel= limitations, we couldn't reliably measure input tokens for these sessions). Opus 4.8 converges in less than half the rounds, and ~60% fewer output tokens per useful finding.
 
-Diffing the two results, however, gives a much finer result. Claude caught issues on 9 PRs OpenAI had completely missed, while OpenAI was strictly better on 9 different PRs. They have different blindspots. Claude seems to be better at "rescuing" 0-recall PRs, and OpenAI is better at "nailing" perfect-F1 PRs.
+Diffing the two results, however, gives a much finer result. Claude caught issues on 9 PRs GPT had completely missed, while GPT was strictly better on 9 different PRs. They have different blindspots. Claude seems to be better at "rescuing" 0-recall PRs, and GPT is better at "nailing" perfect-F1 PRs.
 
 ** Contamination?
 
@@ -65,9 +65,12 @@ Diffing the two results, however, gives a much finer result. Claude caught issue
 
 |-------------------+-----+--------------------+---------------------|
 | bucket            | PRs | gpt-5.5 average f1 | opus-4.8 average f1 |
+|-------------------+-----+--------------------+---------------------|
 | older (< 2024-11) |  19 |              46.3% |               54.0% |
 | newer (> 2024-11) |  21 |                30% |               26.4% |
 | Δ                 |     |           -16.3 pp |            -27.6 pp |
 |-------------------+-----+--------------------+---------------------|
 
-Both models also weirdly do substantially better on older PRs, which _seems_ consistent with contamination or memorization, but it's hard to be sure. In any case, the point of this benchmark isn't to sit at a leaderboard, but just to validate initial-hesitation real-world usefulness. The benchmarks also completely elide patch applicability correctness, which is a focus point for Hutch, and can only reliably be done with active usage.
+Both models do substantially better on older PRs, which _seems_ consistent with contamination or memorization, but it's hard to be sure.
+
+In any case, the point of this benchmark isn't to sit at a leaderboard, but just to validate initial-hesitation real-world usefulness. The benchmarks also completely elide patch applicability correctness, which is a focus point for Hutch, and can only reliably be done with active usage.
