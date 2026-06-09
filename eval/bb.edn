@@ -1,0 +1,15 @@
+{:deps {org.babashka/http-client {:mvn/version "0.4.19"}
+        cheshire/cheshire        {:mvn/version "5.13.0"}}
+ :tasks
+ {fetch {:doc  "Download Martian golden_comments to ./golden_comments/"
+         :task (shell "bb eval.clj fetch")}
+  prep  {:doc  "Phase 1 only — clone source repos + materialize worktrees"
+         :task (apply shell "bb" "eval.clj" "prep"
+                      (remove #{"--"} *command-line-args*))}
+  run   {:doc              "Run hutch eval over local golden_comments (pass flags after --)"
+         :override-builtin true
+         :task             (apply shell "bb" "eval.clj" "run"
+                                  (remove #{"--"} *command-line-args*))}
+  summary {:doc  "Print summary table for an existing results JSONL (default ./results.jsonl)"
+           :task (apply shell "bb" "eval.clj" "summary"
+                        (remove #{"--"} *command-line-args*))}}}

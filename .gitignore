@@ -3,3 +3,9 @@
 *-pkg.el
 .dir-locals.el
 .claude/
+.clj-kondo/
+.lsp/
+
+# eval artifacts
+eval/golden_comments/
+eval/logs/
