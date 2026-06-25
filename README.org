@@ -20,6 +20,17 @@ that handles deps for you (=straight.el=, =elpaca=) — they'll pull in
 =magit=, =gptel=, and =svg-lib= automatically.  We recommend SOTA models
 only, since the output from cheaper models can be unreliable.
 
+**Tree-sitter grammars (optional but recommended):** the
+=surrounding_context= tool uses tree-sitter to resolve the enclosing
+definition for a hunk.  It returns a "no grammar" sentinel for any
+language whose grammar isn't installed, so the tool degrades gracefully
+— but reviews are noticeably better with grammars present.  Install
+once per language via =M-x treesit-install-language-grammar= (requires
+=git= and a C compiler).  Or install everything in one shot from a
+cloned checkout: =bin/install-grammars=.  Hutch currently has explicit
+support for: python, javascript, typescript, tsx, go, ruby, rust, java,
+c, c++, clojure, elixir (elisp is built-in and needs no grammar).
+
 *** straight.el
 #+begin_src emacs-lisp
 (use-package hutch

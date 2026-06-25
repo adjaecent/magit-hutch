@@ -20,7 +20,10 @@
   (expand-file-name name sct--fixtures-dir))
 
 (defun sct--result (lang file line)
-  "Run enclosing definition lookup for LANG on FILE at LINE."
+  "Run enclosing definition lookup for LANG on FILE at LINE.
+Skips the calling test if the tree-sitter grammar for LANG is not
+installed (e.g. on a CI runner without the grammars built)."
+  (skip-unless (treesit-language-available-p lang))
   (hutch--treesit-enclosing-definition lang (sct--fixture file) line))
 
 (defun sct--assert-contains (result expected-substring)
