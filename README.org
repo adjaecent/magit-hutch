@@ -20,7 +20,7 @@ that handles deps for you (=straight.el=, =elpaca=) — they'll pull in
 =magit=, =gptel=, and =svg-lib= automatically.  We recommend SOTA models
 only, since the output from cheaper models can be unreliable.
 
-**Tree-sitter grammars (optional but recommended):** the
+*Tree-sitter grammars (optional but recommended):* the
 =surrounding_context= tool uses tree-sitter to resolve the enclosing
 definition for a hunk.  It returns a "no grammar" sentinel for any
 language whose grammar isn't installed, so the tool degrades gracefully

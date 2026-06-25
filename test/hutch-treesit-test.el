@@ -22,8 +22,11 @@
 (defun sct--result (lang file line)
   "Run enclosing definition lookup for LANG on FILE at LINE.
 Skips the calling test if the tree-sitter grammar for LANG is not
-installed (e.g. on a CI runner without the grammars built)."
-  (skip-unless (treesit-language-available-p lang))
+installed (e.g. on a runner without the grammars built).  Uses
+`ert-skip' rather than `skip-unless' because the latter is only
+valid inside `ert-deftest' bodies, not in helper functions."
+  (unless (treesit-language-available-p lang)
+    (ert-skip (format "tree-sitter grammar for %s not available" lang)))
   (hutch--treesit-enclosing-definition lang (sct--fixture file) line))
 
 (defun sct--assert-contains (result expected-substring)
@@ -49,7 +52,7 @@ installed (e.g. on a CI runner without the grammars built)."
 
 (ert-deftest sct-python-class ()
   "Line on the class definition should find the class."
-  (sct--assert-contains (sct--result 'python "sample.py" 9)
+  (sct--assert-contains (sct--result 'python "sample.py" 8)
                         "class UserService"))
 
 (ert-deftest sct-python-top-level ()
@@ -135,11 +138,14 @@ installed (e.g. on a CI runner without the grammars built)."
 
 (ert-deftest sct-rust-standalone-fn ()
   "Line inside a standalone function."
-  (sct--assert-contains (sct--result 'rust "sample.rs" 22)
+  (sct--assert-contains (sct--result 'rust "sample.rs" 20)
                         "fn process"))
 
 (ert-deftest sct-rust-top-level ()
-  "Line on struct definition should return nil."
-  (sct--assert-nil (sct--result 'rust "sample.rs" 1)))
+  "Line on struct definition should find the struct.
+Mirrors the python/ruby class behaviour: a line on a named
+top-level type declaration matches the declaration."
+  (sct--assert-contains (sct--result 'rust "sample.rs" 1)
+                        "struct Config"))
 
 ;;; hutch-treesit-test.el ends here

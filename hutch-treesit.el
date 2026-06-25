@@ -85,7 +85,9 @@ Returns parents in outermost-first order.
    ((or (null node) (>= found max-depth))
     parents)
 
-   ((member (treesit-node-type node) hutch--treesit-definition-types)
+   ((and (treesit-node-parent node)
+         (treesit-node-check node 'named)
+         (member (treesit-node-type node) hutch--treesit-definition-types))
     (hutch--treesit-enclosing-parents
      (treesit-node-parent node)
      (cons node parents)
