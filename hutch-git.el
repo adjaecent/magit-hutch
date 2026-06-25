@@ -30,6 +30,7 @@
 ;;   :desc     -- human-readable description (derived)
 ;;   :manifest -- formatted file change summary string
 ;;   :hash     -- sha256 of :manifest (for caching)
+;;   :shash    -- fixnum hashcode of :manifest
 
 ;;; Code:
 
@@ -60,6 +61,7 @@ SCOPE must be one of `hutch--valid-scopes'."
         :base     base
         :manifest manifest
         :hash     (secure-hash 'sha256 manifest)
+        :shash    (abs (sxhash manifest))
         :desc     (if (and head base) (format "%s..%s" base head) "")))
 
 (defun hutch--symbolic-ref ()

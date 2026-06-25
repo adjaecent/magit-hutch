@@ -26,8 +26,10 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'hutch-agent)
 (require 'hutch-apply)
+(require 'hutch-instrument)
 (require 'magit-section)
 (require 'svg-lib)
 
@@ -354,6 +356,7 @@ runs next time."
   "Cancel all in-progress reviews."
   (interactive)
   (mapc #'funcall hutch--cancel-fns)
+  (hutch--trace-end)
   (setq hutch--cancel-fns nil)
   (dolist (scope hutch--scopes)
     (let ((label (hutch--scope-label scope)))
@@ -393,7 +396,7 @@ runs next time."
   (pcase (plist-get scope :scope)
     (:staged   "📦")
     (:unpushed "⬆️")
-    (:branch   "🪾")
+    (:branch   "🌿")
     (_         "📋")))
 
 (defun hutch--scope-display-label (scope &optional result)
@@ -490,9 +493,13 @@ to \"...\" before the first tick arrives."
 (defun hutch-magit-review ()
   "Review change with AI.  Show sections for branch, unpushed, and staged diffs."
   (interactive)
-  (let ((scopes (hutch-collect-scopes)))
+  (hutch--trace-begin)
+  (let* ((scopes (hutch-collect-scopes))
+         (remaining (length scopes)))
     (if (null scopes)
-        (message "Hutch: no changes to review")
+        (progn
+          (message "Hutch: no changes to review")
+          (hutch--trace-end))
       (let ((buf (hutch--setup-buffer)))
         (with-current-buffer buf
           (setq hutch--scopes scopes
@@ -503,7 +510,8 @@ to \"...\" before the first tick arrives."
               (hutch--review scopes
                              (lambda (result)
                                (hutch--render-remove-progress buf (hutch--scope-label result))
-                               (hutch--render-result buf result))
+                               (hutch--render-result buf result)
+                               (when (zerop (cl-decf remaining)) (hutch--trace-end)))
                              (lambda (scope current max)
                                (hutch--render-progress buf scope current max))))))))
 

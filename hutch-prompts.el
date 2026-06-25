@@ -126,6 +126,8 @@ Finding fields:
 - description: ≤ 1000 chars
 - old_lines: exact verbatim text to replace; omit for comment-only findings
 - new_lines: replacement text; omit for comment-only findings
+- lines: line anchor for comment-only findings (e.g. \"42\", \"42-50\", \
+or comma-separated \"42, 90, 120\" for multi-spot issues); omit when old_lines is set
 - lgtm: true for clean files (no other fields needed)
 
 Edit format — SEARCH/REPLACE.  You submit OLD_LINES (the exact text to \

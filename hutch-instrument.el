@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'subr-x)
+
 (defvar hutch--trace-events nil
   "Vector of trace events collected for the current review.")
 (defvar hutch--trace-t0 nil
@@ -48,7 +50,14 @@ When nil, tracing is disabled."
 (defun hutch--trace-emit (evt tid)
   "Append EVT to the current trace under thread id TID.
 EVT is a plist representing one Chrome trace event; ts/pid/tid are
-filled in here.  No-op unless tracing is active."
+filled in here.  No-op unless tracing is active.
+
+Caller invariant: every value inside EVT (including nested values
+under `:args') must be JSON-safe — strings, numbers, vectors, plists
+with keyword keys, t, nil, :false, or :null.  In particular, bare
+symbols and keywords used as VALUES (not keys) will trip
+`json-serialize' at flush time; stringify them at the emission site
+before calling this function."
   (when (and hutch--trace-t0 hutch-trace-dir)
     (let ((evt (thread-first evt
                              (plist-put :ts (hutch--trace-ts))
@@ -58,10 +67,42 @@ filled in here.  No-op unless tracing is active."
       (setq hutch--trace-events
             (vconcat hutch--trace-events evt)))))
 
+(defun hutch--trace-counter (name tid args)
+  "Emit a counter event for NAME on thread TID.
+ARGS is a plist of named series."
+  (hutch--trace-emit `(:name ,name :ph "C" :args ,args) tid))
+
+(defun hutch--trace-instant (name cat tid &optional args)
+  "Emit an instant (point-in-time) event for NAME under CAT on thread TID.
+Optional ARGS is a plist attached to the event."
+  (hutch--trace-emit `(:name ,name :cat ,cat :ph "i" :args ,args) tid))
+
+(defun hutch--trace-meta-thread-name (tid label)
+  "Label thread TID as LABEL in the Perfetto view."
+  (hutch--trace-emit
+   `(:name "thread_name" :ph "M" :args (:name ,label)) tid))
+
+(defun hutch--trace-slice-beg (name cat tid &optional args)
+  "Emit a slice-begin event for NAME under category CAT and thread TID.
+Optional ARGS plist is attached to the event."
+  (hutch--trace-emit `(:name ,name :cat ,cat :ph "B" :args ,args) tid))
+
 (defun hutch--trace-slice-end (name cat tid &optional args)
   "Emit a slice-end event for NAME under category CAT and thread TID.
 Optional ARGS plist is attached to the event."
   (hutch--trace-emit `(:name ,name :cat ,cat :ph "E" :args ,args) tid))
+
+(defmacro hutch--with-trace (name cat tid args &rest body)
+  "Run BODY as a B/E slice for NAME under CAT and TID.
+ARGS is a plist attached to the begin event.  The end event fires
+in an `unwind-protect' cleanup so the slice closes even if BODY
+signals."
+  (declare (indent 4) (debug (form form form form body)))
+  `(progn
+     (hutch--trace-slice-beg ,name ,cat ,tid ,args)
+     (unwind-protect
+         (progn ,@body)
+       (hutch--trace-slice-end ,name ,cat ,tid nil))))
 
 (defun hutch--trace-begin ()
   "Start a new trace session.
@@ -71,12 +112,13 @@ No-op unless `hutch-trace-dir' is set."
       (setq hutch--trace-t0 (float-time)
             hutch--trace-events nil
             hutch--trace-pid (string-to-number ts)
-            hutch--trace-file (format "magit-hutch-trace-%s.json" ts)))))
+            hutch--trace-file (format "hutch-trace-%s.json" ts)))))
 
 (defun hutch--trace-write (dir-path)
   "Write the accumulated trace events to DIR-PATH as Chrome trace JSON."
   (let* ((dir  (expand-file-name dir-path))
-         (path (expand-file-name hutch--trace-file dir)))
+         (path (expand-file-name hutch--trace-file dir))
+         (coding-system-for-write 'utf-8))
     (make-directory dir t)
     (with-temp-file path
       (insert (json-serialize `(:traceEvents ,(vconcat hutch--trace-events)))))))

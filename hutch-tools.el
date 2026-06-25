@@ -36,6 +36,7 @@
 (require 'hutch-utils)
 (require 'hutch-git)
 (require 'hutch-treesit)
+(require 'hutch-instrument)
 
 ;;; --- Tools ---
 
@@ -181,11 +182,14 @@ The core tools (read-diff, verify-block, submit-review) are always included."
 (defun hutch--make-tools (scope result-box)
   "Return gptel tools for a review, with SCOPE and RESULT-BOX captured.
 Always includes core tools; optional tools filtered by `hutch-enabled-tools'."
-  (let ((root (magit-toplevel)))
+  (let ((root      (magit-toplevel))
+        (scope-id  (plist-get scope :shash)))
     (append
      (list
       (gptel-make-tool
-       :function (lambda (path) (hutch--tool-read-diff-for-scope root scope path))
+       :function (lambda (path)
+                   (hutch--with-trace "read_diff" "tool" scope-id `(:p ,path)
+                     (hutch--tool-read-diff-for-scope root scope path)))
       :name "read_diff"
       :description "Read the full diff for a specific file in the current review scope. \
 Use this to inspect the actual changes before submitting findings."
@@ -194,7 +198,8 @@ Use this to inspect the actual changes before submitting findings."
                      :description "File path from the manifest")))
      (gptel-make-tool
       :function (lambda (file old_lines)
-                  (hutch--tool-verify-block root scope file old_lines))
+                  (hutch--with-trace "verify_block" "tool" scope-id `(:f ,file :l ,old_lines)
+                    (hutch--tool-verify-block root scope file old_lines)))
       :name "verify_block"
       :description "Check that OLD_LINES uniquely matches in FILE at the \
 scope's reference (index for staged, HEAD for branch/unpushed). \
@@ -212,8 +217,12 @@ including it in submit_review.  Cheap; no git/network involved."
                      :description "Exact verbatim text from the file to verify is uniquely matchable")))
      (gptel-make-tool
       :function (lambda (findings)
-                  (hutch--log "tool" "submit_review: %d findings" (length findings))
-                  (hutch--result-box-set result-box (append findings nil))
+                  (let ((n (length findings)))
+                    (hutch--with-trace "submit_review" "tool" scope-id `(:n ,n)
+                      (hutch--log "tool" "submit_review: %d findings" n)
+                      (hutch--result-box-set result-box (append findings nil))
+                      (hutch--trace-instant "parse-response" "tool" scope-id
+                                            `(:findings ,(vconcat findings)))))
                   "Review submitted.")
       :name "submit_review"
       :description "Submit your final code review findings. You MUST call this \
@@ -238,11 +247,16 @@ If your text matches multiple locations, include more surrounding lines for uniq
 Omit for comment-only findings.")
                                           :new_lines (:type string
                                                             :description "Replacement text.  Omit for comment-only findings.")
+                                          :lines (:type string
+                                                        :description "Line anchor for comment-only findings, e.g. \"42\" or \"42-50\" \
+or comma-separated for multiple spots like \"42, 90, 120\".  Omit when submitting \
+old_lines/new_lines — :lines is auto-derived from the match position.")
                                           :lgtm (:type boolean :description "true if file has no issues")))))))
      (when (memq 'read-file hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (path &optional start-line end-line)
-                          (hutch--tool-read-file root scope path start-line end-line))
+                          (hutch--with-trace "read_file" "tool" scope-id `(:p ,path :s ,start-line :e ,end-line)
+                            (hutch--tool-read-file root scope path start-line end-line)))
               :name "read_file"
               :description "Read the contents of a file, optionally restricted to a line range. \
 Use this to inspect context outside the diff when a changed line references \
@@ -261,7 +275,8 @@ something not visible in the diff itself."
      (when (memq 'search-codebase hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (pattern &optional file-glob)
-                          (hutch--tool-search-codebase root pattern file-glob))
+                          (hutch--with-trace "search_codebase" "tool" scope-id `(:pt ,pattern :fg ,file-glob)
+                            (hutch--tool-search-codebase root pattern file-glob)))
               :name "search_codebase"
               :description "Search the codebase using git grep (extended regex). \
 Returns matching lines with file paths and line numbers. \
@@ -276,7 +291,8 @@ Use this to find callers, references, imports, or any text pattern."
      (when (memq 'git-log hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (path &optional max-count)
-                          (hutch--tool-git-log root path max-count))
+                          (hutch--with-trace "git_log" "tool" scope-id `(:p ,path)
+                            (hutch--tool-git-log root path max-count)))
               :name "git_log"
               :description "Show recent commit history for a file. \
 Use this to understand why code looks the way it does \
@@ -291,7 +307,8 @@ and what recent changes were made."
      (when (memq 'git-blame hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (path &optional start-line end-line)
-                          (hutch--tool-git-blame root path start-line end-line))
+                          (hutch--with-trace "git_blame" "tool" scope-id `(:p ,path)
+                            (hutch--tool-git-blame root path start-line end-line)))
               :name "git_blame"
               :description "Show git blame for a file, optionally for a \
 specific line range. \
@@ -310,7 +327,8 @@ Use this to see who last modified lines and in what commit."
      (when (memq 'surrounding-context hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (path line &optional depth)
-                          (hutch--tool-surrounding-context root path line depth))
+                          (hutch--with-trace "surrounding_context" "tool" scope-id `(:p ,path :l ,line)
+                            (hutch--tool-surrounding-context root path line depth)))
               :name "surrounding_context"
               :description "Get enclosing definitions around a line using tree-sitter. \
 Use this to understand the full context of a changed line \

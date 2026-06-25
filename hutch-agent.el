@@ -35,6 +35,7 @@
 (require 'hutch-cache)
 (require 'hutch-findings)
 (require 'hutch-gates)
+(require 'hutch-instrument)
 
 ;;; --- User-facing options ---
 
@@ -94,7 +95,7 @@ TOKENS is an optional (input . output) cons cell."
          (cons (when (or in (car cur)) (+ (or (car cur) 0) (or in 0)))
                (when (or out (cdr cur)) (+ (or (cdr cur) 0) (or out 0)))))))))
 
-(defun hutch--agent-request (response info on-done on-error on-progress result-box token-box round-box max-rounds)
+(defun hutch--agent-request (response info on-done on-error on-progress result-box token-box round-box max-rounds scope-id)
   "Gptel callback that drives one step of the tool-use loop.
 RESPONSE and INFO are the gptel callback arguments.  ON-DONE is called
 when RESULT-BOX is set (submit_review fired).  ON-ERROR is called with
@@ -109,6 +110,7 @@ into TOKEN-BOX."
          (evt-resp          (and (consp response) (car response)))
          (is-tool-resp      (eq evt-resp 'tool-result))
          (is-reasoning-resp (eq evt-resp 'reasoning)))
+
     (hutch--log "debug" "round %d response=%S"
                 round (cond ((stringp response) "text")
                             (evt-resp evt-resp)
@@ -120,21 +122,38 @@ into TOKEN-BOX."
      ;; gptel auto-executed tools; check result and track rounds
      (is-tool-resp
       (hutch--accumulate-tokens token-box info round)
-      (hutch--result-box-set round-box (1+ round))
-      (when on-progress (funcall on-progress (1+ round) max-rounds))
-      (cond
-       ((hutch--result-box-get result-box)
-        (condition-case err
-            (funcall on-done)
-          (error (funcall on-error 'on-done-error (error-message-string err)))))
-       ((> (1+ round) max-rounds)
-        (funcall on-error 'tool-loop-exceeded "exceeded max tool rounds"))))
+      (let ((completed (1+ round)))
+        (hutch--result-box-set round-box completed)
+
+        (hutch--trace-slice-end "llm-call" "llm" scope-id)
+        (let ((tokens (hutch--result-box-get token-box)))
+          (hutch--trace-counter "tokens"
+                                scope-id
+                                `(:input ,(or (car tokens) 0) :output ,(or (cdr tokens) 0))))
+
+        (when on-progress (funcall on-progress completed max-rounds))
+        (cond
+         ((hutch--result-box-get result-box)
+          (condition-case err
+              (funcall on-done)
+            (error (funcall on-error 'on-done-error (error-message-string err)))))
+         ((> completed max-rounds)
+          (funcall on-error 'tool-loop-exceeded "exceeded max tool rounds"))
+         (t
+          (hutch--trace-slice-beg "llm-call" "llm" scope-id `(:turn ,(1+ completed)))))))
 
      ;; reasoning block — normally intermediate, but if stop_reason is max_tokens
      ;; the FSM goes DONE with no further callback; surface that as an error
      (is-reasoning-resp
       (when (equal (plist-get info :status) "max_tokens")
         (funcall on-error 'max-tokens "stopped mid-thinking: max_tokens exhausted")))
+
+     ;; an empty response is considered model giving up
+     ((and is-str-resp
+           (string-empty-p response)
+           (not (hutch--result-box-get result-box))
+           (not (plist-get info :tool-use)))
+      (funcall on-error 'no-submit "model returned empty response without calling submit_review"))
 
      ;; text response — error only if no tools are pending in the same response.
      ;; Some providers (e.g. DeepSeek) emit prose alongside a tool_call in the
@@ -153,11 +172,12 @@ into TOKEN-BOX."
                (format "model stopped unexpectedly (response type: %s)"
                        (or evt-resp response)))))))
 
-(defun hutch--agent (prompt on-done on-error on-progress result-box token-box cancel-box round-box max-rounds)
+(defun hutch--agent (prompt on-done on-error on-progress result-box token-box cancel-box round-box max-rounds scope-id)
   "Start a gptel request with PROMPT and a callback that drives the tool-use loop.
 Calls ON-DONE when RESULT-BOX is set, ON-ERROR with (type msg) on failure.
 ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round.
 Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
+  (hutch--trace-slice-beg "llm-call" "llm" scope-id `(:turn 1))
   (thread-last
     (gptel-request (plist-get prompt :user)
       :system (plist-get prompt :system)
@@ -170,7 +190,8 @@ Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
                                         result-box
                                         token-box
                                         round-box
-                                        max-rounds)))
+                                        max-rounds
+                                        scope-id)))
     (hutch--result-box-set cancel-box)))
 
 (defun hutch--agent-cancel (cancel-box)
@@ -204,32 +225,45 @@ CANCEL-BOX is a result-box; when set non-nil the in-flight request is
 aborted before its callback fires."
   (unless hutch-backend
     (error "Hutch-backend is not set"))
-  (let* ((result-box    (hutch--make-result-box))
-         (token-box     (hutch--make-result-box))
-         (round-box     (hutch--make-result-box))
-         (tools         (hutch--make-tools scope result-box))
-         (user-prompt   (format hutch-review-template (plist-get scope :manifest)))
-         (prompt        (list :user user-prompt
-                              :system (hutch-system-prompt hutch-max-tool-rounds)))
-         (gptel-backend hutch-backend)
-         (gptel-model   (car (gptel-backend-models hutch-backend)))
-         (gptel-tools   tools)
-         (on-progress   (when on-progress
-                          (lambda (current max) (funcall on-progress scope current max)))))
-    (hutch--agent
-     prompt
-     (lambda ()
-       (hutch--agent-cancel cancel-box)
-       (hutch--review-on-done scope result-box token-box on-done))
-     (lambda (type msg)
-       (hutch--agent-cancel cancel-box)
-       (hutch--review-on-error scope on-done type msg))
-     on-progress
-     result-box
-     token-box
-     cancel-box
-     round-box
-     hutch-max-tool-rounds)))
+  (let ((scope-id   (plist-get scope :shash))
+        ;; Stringify here so it's JSON-safe wherever it lands in trace args
+        ;; (per `hutch--trace-emit''s caller invariant).
+        (scope-name (symbol-name (plist-get scope :scope)))
+        (scope-desc (plist-get scope :desc)))
+    (hutch--trace-meta-thread-name scope-id (format "scope:%s:%s" scope-name scope-desc))
+    (hutch--trace-slice-beg "review-scope" "scope" scope-id `(:s ,scope-name :d ,scope-desc))
+
+    (let* ((result-box    (hutch--make-result-box))
+           (token-box     (hutch--make-result-box))
+           (round-box     (hutch--make-result-box))
+           (tools         (hutch--make-tools scope result-box))
+           (user-prompt   (format hutch-review-template (plist-get scope :manifest)))
+           (prompt        (list :user user-prompt
+                                :system (hutch-system-prompt hutch-max-tool-rounds)))
+           (gptel-backend hutch-backend)
+           (gptel-model   (car (gptel-backend-models hutch-backend)))
+           (gptel-tools   tools)
+           (on-progress   (when on-progress
+                            (lambda (current max) (funcall on-progress scope current max)))))
+      (hutch--agent
+       prompt
+       (lambda ()
+         (hutch--trace-slice-end "review-scope" "scope" scope-id)
+
+         (hutch--agent-cancel cancel-box)
+         (hutch--review-on-done scope result-box token-box on-done))
+       (lambda (type msg)
+         (hutch--trace-slice-end "review-scope" "scope" scope-id)
+
+         (hutch--agent-cancel cancel-box)
+         (hutch--review-on-error scope on-done type msg))
+       on-progress
+       result-box
+       token-box
+       cancel-box
+       round-box
+       hutch-max-tool-rounds
+       scope-id))))
 
 (defun hutch--review (scopes on-done on-progress)
   "Review SCOPES with caching.
