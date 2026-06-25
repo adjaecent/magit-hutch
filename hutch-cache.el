@@ -1,8 +1,15 @@
-;;; magit-hutch-cache.el --- Cache review in .git -*- lexical-binding: t; -*-
+;;; hutch-cache.el --- Cache review in .git -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; Persistent review cache keyed by manifest SHA256.  Stores results
+;; under the repository's gitdir so they survive Emacs restarts but
+;; never leak into commits.
 
 ;;; Code:
 
@@ -28,7 +35,7 @@ results would mask current model behavior."
 
 (defun hutch--cache-file ()
   "Return the path to the review cache file in .git/."
-  (expand-file-name "hutch-review-cache" (magit-gitdir)))
+  (expand-file-name "hutch/cache.eld" (magit-gitdir)))
 
 (defun hutch--cache-lookup (hash)
   "Look up HASH in the cache.  Return the result plist or nil on miss.
@@ -78,6 +85,6 @@ Returns CALLBACK unchanged when `hutch-cache-enabled' is nil."
           (hutch--cache-store hash result cache-file))
         (funcall callback result)))))
 
-(provide 'magit-hutch-cache)
+(provide 'hutch-cache)
 
-;;; magit-hutch-cache.el ends here
+;;; hutch-cache.el ends here

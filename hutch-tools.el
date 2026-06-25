@@ -1,29 +1,39 @@
-;;; magit-hutch-tools.el --- Tool functions for the review agent -*- lexical-binding: t; -*-
+;;; hutch-tools.el --- Tool functions for the review agent -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; Tool implementations exposed to the LLM: search_codebase, read_file,
+;; surrounding_context, and submit_review.  Submission uses a closure
+;; over a result-box so the agent loop can collect findings without
+;; relying on global state.
 
 ;;; Code:
 
 (require 'magit)
 (require 'gptel-request)
-(require 'magit-hutch-utils)
-(require 'magit-hutch-git)
-(require 'magit-hutch-treesit)
+(require 'hutch-utils)
+(require 'hutch-git)
+(require 'hutch-treesit)
 
 ;;; --- Tools ---
 
-(defmacro with-cur-dir (root &rest body)
+(defmacro hutch--with-cur-dir (root &rest body)
+  "Run BODY with `default-directory' bound to ROOT."
+  (declare (indent 1) (debug (form body)))
   `(let ((default-directory ,root))
      ,@body))
 
 (defun hutch--tool-search-codebase (root pattern &optional file-glob)
-  "Search the codebase for PATTERN using git grep.  Optionally filter by FILE-GLOB.
+  "Search ROOT for PATTERN using git grep.  Optionally filter by FILE-GLOB.
 PATTERN is extended POSIX regex (use \\=`|\\=' for alternation,
 \\=`()\\=' for grouping).  FILE-GLOB is a git pathspec; if it contains
 \\=`**\\=' magic-glob syntax is applied automatically."
-  (with-cur-dir
+  (hutch--with-cur-dir
    root
    (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
    (let* ((pathspec (cond
@@ -57,7 +67,7 @@ PATTERN is extended POSIX regex (use \\=`|\\=' for alternation,
   "Read PATH at the revision for SCOPE relative to ROOT.
 For staged scope reads the index version; for branch/unpushed reads at HEAD.
 Optionally restrict to START-LINE..END-LINE."
-  (with-cur-dir
+  (hutch--with-cur-dir
    root
    (let* ((head   (plist-get scope :head))
           (staged (and (null head) (null (plist-get scope :base))))
@@ -76,8 +86,9 @@ Optionally restrict to START-LINE..END-LINE."
          (string-join slice "\n"))))))
 
 (defun hutch--tool-git-log (root path &optional max-count)
-  "Show commit history for PATH.  Return up to MAX-COUNT entries (default 10)."
-  (with-cur-dir
+  "Show commit history for PATH within ROOT.
+Return up to MAX-COUNT entries (default 10)."
+  (hutch--with-cur-dir
    root
    (let* ((n (number-to-string (or max-count 10)))
           (result (hutch--git-log path n)))
@@ -85,8 +96,9 @@ Optionally restrict to START-LINE..END-LINE."
      (if (string-empty-p result) "No history found." result))))
 
 (defun hutch--tool-git-blame (root path &optional start-line end-line)
-  "Show git blame for PATH.  Optionally restrict to START-LINE..END-LINE."
-  (with-cur-dir
+  "Show git blame for PATH within ROOT.
+Optionally restrict to START-LINE..END-LINE."
+  (hutch--with-cur-dir
    root
    (hutch--log "tool" "git_blame: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
    (let ((result (hutch--git-blame path start-line end-line)))
@@ -94,9 +106,9 @@ Optionally restrict to START-LINE..END-LINE."
      (if (string-empty-p result) "No blame data found." result))))
 
 (defun hutch--tool-verify-patch-for-scope (root scope patch)
-  "Dry-run PATCH with git apply --check for SCOPE.
+  "Dry-run PATCH with git apply --check for SCOPE within ROOT.
 Returns \"OK\" on success or \"FAIL: <git error>\" on failure."
-  (with-cur-dir
+  (hutch--with-cur-dir
    root
    (let* ((result (hutch--patch-apply scope patch t))
           (ok    (car result))
@@ -108,9 +120,9 @@ Returns \"OK\" on success or \"FAIL: <git error>\" on failure."
        (format "FAIL — git apply: %s" out)))))
 
 (defun hutch--tool-surrounding-context (root path line &optional depth)
-  "Return enclosing definitions around LINE in PATH using Tree-sitter.
+  "Return enclosing definitions around LINE in PATH within ROOT using Tree-sitter.
 Returns up to DEPTH levels (default 1), innermost first."
-  (with-cur-dir
+  (hutch--with-cur-dir
    root
    (let ((full-path (expand-file-name path default-directory)))
      (hutch--log "tool" "surrounding_context: %s:%d (depth %s)" path line (or depth 1))
@@ -123,8 +135,8 @@ Returns up to DEPTH levels (default 1), innermost first."
                (format "No enclosing definition found at %s:%d" path line))))))))
 
 (defun hutch--tool-read-diff-for-scope (root scope path)
-  "Return the full diff for PATH within SCOPE."
-  (with-cur-dir
+  "Return the full diff for PATH within SCOPE rooted at ROOT."
+  (hutch--with-cur-dir
    root
    (hutch--log "tool" "read_diff: %s [%s]" path (plist-get scope :scope))
    (or (hutch--git-diff scope path) "No diff found.")))
@@ -279,6 +291,6 @@ Pass depth to get multiple levels (e.g. function + class), but avoid going above
                              :description "Number of enclosing definitions to return (default 1)"
                              :optional t))))))))
 
-(provide 'magit-hutch-tools)
+(provide 'hutch-tools)
 
-;;; magit-hutch-tools.el ends here
+;;; hutch-tools.el ends here

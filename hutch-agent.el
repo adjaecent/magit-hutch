@@ -1,19 +1,27 @@
-;;; magit-hutch-agent.el --- LLM review agent -*- lexical-binding: t; -*-
+;;; hutch-agent.el --- LLM review agent -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; Generic agent loop and review-specific callbacks.  Drives the
+;; multi-turn tool-calling conversation with the LLM and dispatches
+;; findings into the review buffer.
 
 ;;; Code:
 
 (require 'subr-x)
 (require 'gptel-request)
-(require 'magit-hutch-utils)
-(require 'magit-hutch-git)
-(require 'magit-hutch-prompts)
-(require 'magit-hutch-tools)
-(require 'magit-hutch-cache)
-(require 'magit-hutch-findings)
-(require 'magit-hutch-gates)
+(require 'hutch-utils)
+(require 'hutch-git)
+(require 'hutch-prompts)
+(require 'hutch-tools)
+(require 'hutch-cache)
+(require 'hutch-findings)
+(require 'hutch-gates)
 
 ;;; --- User-facing options ---
 
@@ -23,7 +31,7 @@
   :prefix "hutch-")
 
 (defvar hutch-backend nil
-  "gptel backend for hutch code reviews.
+  "Gptel backend for hutch code reviews.
 Defaults to `gptel-backend' if nil.  Set this to a gptel backend, e.g.:
   (setq hutch-backend
         (gptel-make-anthropic \"Claude\"
@@ -74,11 +82,13 @@ TOKENS is an optional (input . output) cons cell."
                (when (or out (cdr cur)) (+ (or (cdr cur) 0) (or out 0)))))))))
 
 (defun hutch--agent-request (response info on-done on-error on-progress result-box token-box round-box max-rounds)
-  "gptel callback that drives one step of the tool-use loop.
+  "Gptel callback that drives one step of the tool-use loop.
 RESPONSE and INFO are the gptel callback arguments.  ON-DONE is called
 when RESULT-BOX is set (submit_review fired).  ON-ERROR is called with
-\(TYPE MSG) on failure.  ROUND-BOX tracks the number of tool rounds;
-errors if it exceeds MAX-ROUNDS.  Token counts accumulate into TOKEN-BOX."
+\(TYPE MSG) on failure.  ON-PROGRESS, if non-nil, is called as
+\(CURRENT MAX) after each tool round.  ROUND-BOX tracks the number of
+tool rounds; errors if it exceeds MAX-ROUNDS.  Token counts accumulate
+into TOKEN-BOX."
   (let* ((round             (or (hutch--result-box-get round-box) 0))
          (is-abort          (eq response 'abort))
          (is-nil-resp       (null response))
@@ -176,9 +186,11 @@ Call CALLBACK with an error result built from TYPE and MSG."
 (defun hutch--review-scope (scope on-done on-progress cancel-box)
   "Review SCOPE asynchronously with tool use.
 Call ON-DONE with a result plist when finished.
-ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round."
+ON-PROGRESS, if non-nil, is called as (CURRENT MAX) after each tool round.
+CANCEL-BOX is a result-box; when set non-nil the in-flight request is
+aborted before its callback fires."
   (unless hutch-backend
-    (error "hutch-backend is not set"))
+    (error "Hutch-backend is not set"))
   (let* ((result-box    (hutch--make-result-box))
          (token-box     (hutch--make-result-box))
          (round-box     (hutch--make-result-box))
@@ -230,6 +242,6 @@ Returns a list of cancel-callbacks to cancel reviews for SCOPES."
                 (lambda () (hutch--agent-cancel cancel-scope-box)))))
           scopes))
 
-(provide 'magit-hutch-agent)
+(provide 'hutch-agent)
 
-;;; magit-hutch-agent.el ends here
+;;; hutch-agent.el ends here

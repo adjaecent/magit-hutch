@@ -1,4 +1,4 @@
-;;; magit-hutch-treesit-test.el --- Test tree-sitter enclosing definitions -*- lexical-binding: t; -*-
+;;; hutch-treesit-test.el --- Test tree-sitter enclosing definitions -*- lexical-binding: t; -*-
 
 ;;; Code:
 
@@ -8,7 +8,7 @@
                   (directory-file-name
                    (file-name-directory load-file-name)))))
   (add-to-list 'load-path hutch-dir)
-  (require 'magit-hutch-treesit))
+  (require 'hutch-treesit))
 
 (defvar sct--fixtures-dir
   (expand-file-name "fixtures"
@@ -139,4 +139,4 @@
   "Line on struct definition should return nil."
   (sct--assert-nil (sct--result 'rust "sample.rs" 1)))
 
-;;; surrounding-context-test.el ends here
+;;; hutch-treesit-test.el ends here

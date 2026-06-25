@@ -1,4 +1,9 @@
-;;; magit-hutch-apply.el --- Bulk-apply harness -*- lexical-binding: t; -*-
+;;; hutch-apply.el --- Bulk-apply harness -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 ;;
@@ -19,9 +24,9 @@
 ;;; Code:
 
 (require 'seq)
-(require 'magit-hutch-utils)
-(require 'magit-hutch-git)
-(require 'magit-hutch-findings)
+(require 'hutch-utils)
+(require 'hutch-git)
+(require 'hutch-findings)
 
 (defun hutch--apply-candidates (findings)
   "Return FINDINGS with :state `queued', sorted for bottom-up application.
@@ -62,6 +67,6 @@ edits, Emacs will warn at next save."
                       (plist-get f :file) (plist-get f :lines) out)))))
   findings)
 
-(provide 'magit-hutch-apply)
+(provide 'hutch-apply)
 
-;;; magit-hutch-apply.el ends here
+;;; hutch-apply.el ends here

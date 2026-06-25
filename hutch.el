@@ -1,11 +1,11 @@
-;;; magit-hutch.el --- AI code review for magit -*- lexical-binding: t; -*-
+;;; hutch.el --- AI code review for magit -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2026 adjaecent
+;; Copyright (C) 2026 Akshay Gupta
 ;;
-;; Author: adjaecent
+;; Author: Akshay Gupta
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;; Package-Version: 0.1.0
-;; Package-Requires: ((emacs "30.1") (magit "4.0") (gptel "0.9") (svg-lib "0.3"))
+;; Package-Requires: ((emacs "30.1") (magit "4.0") (gptel "0.9.9.3") (svg-lib "0.3"))
 
 ;;; Commentary:
 
@@ -32,13 +32,14 @@
 
 ;;; Code:
 
-(require 'magit-hutch-agent)
-(require 'magit-hutch-ui)
+(require 'hutch-agent)
+(require 'hutch-ui)
 
+;;;###autoload
 (with-eval-after-load 'magit
   (transient-append-suffix 'magit-diff "d"
     '("R" "Hutch code review" hutch-magit-review)))
 
-(provide 'magit-hutch)
+(provide 'hutch)
 
-;;; magit-hutch.el ends here
+;;; hutch.el ends here

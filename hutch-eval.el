@@ -1,4 +1,9 @@
-;;; magit-hutch-eval.el --- Headless entry points for batch evaluation -*- lexical-binding: t; -*-
+;;; hutch-eval.el --- Headless entry points for batch evaluation -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 
@@ -21,9 +26,9 @@
 
 (require 'json)
 (require 'seq)
-(require 'magit-hutch-agent)
-(require 'magit-hutch-git)
-(require 'magit-hutch-utils)
+(require 'hutch-agent)
+(require 'hutch-git)
+(require 'hutch-utils)
 
 (defun hutch-review-headless (root scopes on-result)
   "Run a review of SCOPES under ROOT, calling ON-RESULT per scope.
@@ -34,7 +39,7 @@ Returns the list of cancel functions from `hutch--review'."
     (hutch--review scopes on-result (lambda (_s _c _m) nil))))
 
 (defun hutch-review-sync (root scopes &optional timeout)
-  "Run a review and block until all SCOPES complete.
+  "Run a review on ROOT and block until all SCOPES complete.
 Returns the result plists in the order they completed.
 TIMEOUT in seconds (default 600).  Signals an error if not all
 scopes complete within the deadline.
@@ -51,7 +56,7 @@ under `emacs --batch' where no loop is otherwise running."
                 (< (float-time) deadline))
       (accept-process-output nil 0.1))
     (when (< (length results) total)
-      (error "hutch-review-sync timeout: %d/%d scopes completed"
+      (error "Hutch-review-sync timeout: %d/%d scopes completed"
              (length results) total))
     (nreverse results)))
 
@@ -108,7 +113,8 @@ for `json-encode'."
 (defun hutch-eval-batch-review (repo-dir pr-url tool-name out-file max-rounds)
   "Run a hutch review on REPO-DIR for PR-URL and write JSON export to OUT-FILE.
 Targets the `:branch' scope, disables caching, raises the round budget
-to MAX-ROUNDS for the duration of the run.
+to MAX-ROUNDS for the duration of the run.  TOOL-NAME identifies the
+calling harness in the export payload.
 
 Emits diagnostics to stderr (visible in batch mode) including backend
 identity, scopes collected, per-scope status, and the full `*hutch-log*'
@@ -117,7 +123,7 @@ contents — useful for post-hoc inspection.
 This is the canonical batch entry point used by the Babashka eval
 harness (eval/eval.clj); it exists here so eval-side callers don't
 need to inline elisp."
-  (require 'magit-hutch)
+  (require 'hutch)
   (let* ((default-directory       repo-dir)
          (hutch-cache-enabled     nil)
          (hutch-max-tool-rounds   max-rounds)
@@ -150,6 +156,6 @@ need to inline elisp."
         (with-current-buffer gbuf
           (message "[gptel-log]\n%s" (buffer-string)))))))
 
-(provide 'magit-hutch-eval)
+(provide 'hutch-eval)
 
-;;; magit-hutch-eval.el ends here
+;;; hutch-eval.el ends here

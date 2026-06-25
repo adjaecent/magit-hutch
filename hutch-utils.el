@@ -1,7 +1,14 @@
-;;; magit-hutch-utils.el --- Utility functions -*- lexical-binding: t; -*-
+;;; hutch-utils.el --- Utility functions -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; Small utilities shared across hutch modules: a mutable result-box
+;; for closure-based result collection, string helpers, and logging.
 
 ;;; Code:
 
@@ -39,7 +46,8 @@
       (buffer-string))))
 
 (defun hutch--parse-lines (lines)
-  "Parse :lines string into (START . END) cons. Single \"45\" → (45 . 45)."
+  "Parse LINES (a finding's :lines string) into a (START . END) cons.
+Single \"45\" yields (45 . 45)."
   (when (and lines (stringp lines))
     (if (string-match "\\`\\([0-9]+\\)\\(?:-\\([0-9]+\\)\\)?\\'" lines)
         (let ((start (string-to-number (match-string 1 lines)))
@@ -61,6 +69,7 @@ FMT and ARGS are passed to `format'."
       (goto-char (point-max))
       (insert (format "[%s] [%s] %s\n" ts tag msg)))))
 
+;;;###autoload
 (defun hutch-show-log ()
   "Display the hutch debug log buffer."
   (interactive)
@@ -72,6 +81,7 @@ FMT and ARGS are passed to `format'."
   (file-name-directory (or load-file-name buffer-file-name default-directory))
   "Directory where magit-hutch source files live.")
 
+;;;###autoload
 (defun hutch-reload ()
   "Reload all magit-hutch source files."
   (interactive)
@@ -80,6 +90,6 @@ FMT and ARGS are passed to `format'."
          (expand-file-name "*.el" hutch--source-directory)))
   (message "Hutch: reloaded from %s" hutch--source-directory))
 
-(provide 'magit-hutch-utils)
+(provide 'hutch-utils)
 
-;;; magit-hutch-utils.el ends here
+;;; hutch-utils.el ends here

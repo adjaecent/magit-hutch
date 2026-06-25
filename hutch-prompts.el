@@ -1,8 +1,15 @@
-;;; magit-hutch-prompts.el --- Prompts and examples -*- lexical-binding: t; -*-
+;;; hutch-prompts.el --- Prompts and examples -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; System prompt template and per-scope review prompt builder.
+;; Centralises all prompt text so prompt iteration does not touch
+;; the agent loop.
 
 ;;; Code:
 
@@ -139,6 +146,6 @@ Example 3 (new file — use /dev/null as source):
 ```"
   "Prompt template for hutch review.  Expects a single %s for the manifest.")
 
-(provide 'magit-hutch-prompts)
+(provide 'hutch-prompts)
 
-;;; magit-hutch-prompts.el ends here
+;;; hutch-prompts.el ends here

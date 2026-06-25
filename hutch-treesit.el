@@ -1,4 +1,9 @@
-;;; magit-hutch-treesit.el --- Find enclosing definitions with Tree-sitter -*- lexical-binding: t; -*-
+;;; hutch-treesit.el --- Find enclosing definitions with Tree-sitter -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 
@@ -99,6 +104,6 @@ Returns nil if none found."
         (when defs
           (mapconcat #'hutch--treesit-format-node defs "\n\n"))))))
 
-(provide 'magit-hutch-treesit)
+(provide 'hutch-treesit)
 
-;;; magit-hutch-treesit.el ends here
+;;; hutch-treesit.el ends here

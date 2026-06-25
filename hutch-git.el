@@ -1,5 +1,9 @@
-;;; magit-hutch-git.el --- Git helpers, scopes, and diff collection -*- lexical-binding: t; -*-
+;;; hutch-git.el --- Git helpers, scopes, and diff collection -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 ;;
@@ -127,8 +131,8 @@ Return (OK . OUTPUT) where OUTPUT is the stderr from git on failure."
       (delete-file temp-patch))))
 
 (defun hutch--git-log (path max-count)
-  "Run git log for PATH and optionally limit entries to max-count.
-Return the output of a git log"
+  "Run git log for PATH, limiting entries to MAX-COUNT.
+Return the output of `git log' as a string."
   (with-temp-buffer
     (magit-git-insert "log" "--oneline" "--follow" (format "-n%s" max-count) "--" path)
     (buffer-string)))
@@ -180,6 +184,6 @@ Return the output of git blame"
                  (:branch   (hutch--collect-branch)))))
     (and fresh (plist-get fresh :hash))))
 
-(provide 'magit-hutch-git)
+(provide 'hutch-git)
 
-;;; magit-hutch-git.el ends here
+;;; hutch-git.el ends here

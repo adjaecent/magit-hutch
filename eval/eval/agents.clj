@@ -20,9 +20,9 @@ consume JSON; this namespace wraps the HTTP/process plumbing."
 
 (defn- hutch-elisp-expr
   "The single elisp expression sent to emacs --batch.  Just calls the
-canonical entry point in magit-hutch-eval.el."
+canonical entry point in hutch-eval.el."
   [repo-dir pr-url out-file]
-  (format "(progn (require 'magit-hutch-eval)
+  (format "(progn (require 'hutch-eval)
                   (hutch-eval-batch-review %s %s %s %s %d))"
           (pr-str repo-dir) (pr-str pr-url)
           (pr-str cfg/hutch-model) (pr-str out-file)

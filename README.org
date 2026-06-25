@@ -22,8 +22,8 @@ only, since the output from cheaper models can be unreliable.
 
 *** straight.el
 #+begin_src emacs-lisp
-(use-package magit-hutch
-  :straight (magit-hutch :host github :repo "adjaecent/magit-hutch")
+(use-package hutch
+  :straight (hutch :host github :repo "adjaecent/magit-hutch")
   :config
   (setq hutch-backend
         (gptel-make-anthropic "Claude"
@@ -33,8 +33,8 @@ only, since the output from cheaper models can be unreliable.
 
 *** elpaca
 #+begin_src emacs-lisp
-(use-package magit-hutch
-  :ensure (magit-hutch :host github :repo "adjaecent/magit-hutch")
+(use-package hutch
+  :ensure (hutch :host github :repo "adjaecent/magit-hutch")
   :config
   (setq hutch-backend
         (gptel-make-anthropic "Claude"
@@ -59,10 +59,10 @@ current snapshot, so stale index entries 404 when fetched.
 (unless package-archive-contents
   (package-refresh-contents))
 
-(unless (package-installed-p 'magit-hutch)
+(unless (package-installed-p 'hutch)
   (package-vc-install "https://github.com/adjaecent/magit-hutch"))
 
-(with-eval-after-load 'magit-hutch
+(with-eval-after-load 'hutch
   (setq hutch-backend
         (gptel-make-anthropic "Claude"
           :key (getenv "ANTHROPIC_API_KEY")
@@ -79,7 +79,7 @@ then add magit-hutch to your =load-path=:
 
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/path/to/magit-hutch")
-(require 'magit-hutch)
+(require 'hutch)
 (setq hutch-backend
       (gptel-make-anthropic "Claude"
         :key (getenv "ANTHROPIC_API_KEY")
@@ -114,7 +114,7 @@ Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommen
 
 ** Configuration
 #+begin_src emacs-lisp
-(use-package magit-hutch
+(use-package hutch
   :straight (:host github :repo "adjaecent/magit-hutch")
   :config
   (setq gptel-log-level 'info)

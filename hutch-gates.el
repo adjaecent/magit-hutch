@@ -1,5 +1,9 @@
-;;; magit-hutch-gates.el --- Verifies last-mile work done by the agent at submission time to curb hallucinations in the output -*- lexical-binding: t; -*-
+;;; hutch-gates.el --- Verifies last-mile work done by the agent at submission time to curb hallucinations in the output -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 ;;
@@ -16,13 +20,13 @@
 
 (require 'magit)
 (require 'seq)
-(require 'magit-hutch-git)
+(require 'hutch-git)
 (require 'subr-x)
-(require 'magit-hutch-utils)
-(require 'magit-hutch-findings)
+(require 'hutch-utils)
+(require 'hutch-findings)
 
 (defun hutch--gate-file (findings)
-  "Drop findings whose :file does not exist in the repo root."
+  "Drop FINDINGS whose :file does not exist in the repo root."
   (let* ((root   (magit-toplevel))
          (result (seq-filter
                   (lambda (f)
@@ -33,7 +37,7 @@
     result))
 
 (defun hutch--gate-patch (findings scope)
-  "Downgrade suggestion findings whose patch fails git apply --check to comments."
+  "Downgrade suggestion FINDINGS whose patch fails git apply --check in SCOPE."
   (mapcar (lambda (f)
             (let ((type  (plist-get f :type))
                   (file  (plist-get f :file))
@@ -61,6 +65,6 @@
                 (hutch--gate-file)
                 (hutch--gate-patch scope)))
 
-(provide 'magit-hutch-gates)
+(provide 'hutch-gates)
 
-;;; magit-hutch-gates.el ends here
+;;; hutch-gates.el ends here

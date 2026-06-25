@@ -65,7 +65,7 @@
 (defn- prebuild-emacs! []
   (log "Pre-building emacs deps...")
   (let [result (sh cfg/emacs-bin "--batch" "--load" cfg/emacs-init
-                   "--eval" "(progn (require 'magit-hutch) (require 'magit-hutch-eval))")]
+                   "--eval" "(progn (require 'hutch) (require 'hutch-eval))")]
     (if (zero? (:exit result))
       (log "Pre-build OK.")
       (die (format "ERROR: pre-build failed (exit %d):" (:exit result))

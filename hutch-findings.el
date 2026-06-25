@@ -1,11 +1,19 @@
-;;; magit-hutch-findings.el --- Finding data types -*- lexical-binding: t; -*-
+;;; hutch-findings.el --- Finding data types -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
-;;
+
+;; Finding data structures and state transitions (pending → queued →
+;; applied / rejected / invalid).  Findings are plists with a fixed
+;; shape; this file owns construction, validation, and state changes.
 
 ;;; Code:
 
-(require 'magit-hutch-utils)
+(require 'hutch-utils)
 
 (defconst hutch--valid-finding-types '(lgtm suggestion comment)
   "Valid finding type symbols.")
@@ -46,7 +54,9 @@ Returns the finding (mutated if the transition is allowed; unchanged otherwise).
 
 (defun hutch--make-finding (type file lines title desc patch state)
   "Create a finding plist of TYPE for FILE with LINES and PATCH.
-TYPE must be one of `hutch--valid-finding-types'."
+TITLE and DESC are short and long description text.  STATE is the
+initial finding state (typically `pending').  TYPE must be one of
+`hutch--valid-finding-types'."
   (unless (memq type hutch--valid-finding-types)
     (error "Invalid finding type %s, must be one of %s" type hutch--valid-finding-types))
   (list :id (gensym "f-")
@@ -72,6 +82,6 @@ TYPE must be one of `hutch--valid-finding-types'."
       (hutch--make-finding 'suggestion file lines title desc patch 'pending))
      (t (hutch--make-finding 'comment file lines title desc nil 'applied)))))
 
-(provide 'magit-hutch-findings)
+(provide 'hutch-findings)
 
-;;; magit-hutch-findings.el ends here
+;;; hutch-findings.el ends here

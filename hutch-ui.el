@@ -1,4 +1,9 @@
-;;; magit-hutch-ui.el --- Magit-section UI for hutch reviews -*- lexical-binding: t; -*-
+;;; hutch-ui.el --- Magit-section UI for hutch reviews -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 Akshay Gupta
+;;
+;; Author: Akshay Gupta
+;; URL: https://github.com/adjaecent/magit-hutch
 
 ;;; Commentary:
 
@@ -7,8 +12,8 @@
 
 ;;; Code:
 
-(require 'magit-hutch-agent)
-(require 'magit-hutch-apply)
+(require 'hutch-agent)
+(require 'hutch-apply)
 (require 'magit-section)
 (require 'svg-lib)
 
@@ -25,13 +30,22 @@
   "Major mode for displaying hutch code review results."
   :interactive nil)
 
-;; Magit looks up keymaps as `magit-TYPE-section-map' for section type TYPE
-(defvar-keymap magit-review-suggestion-section-map
+(defvar-local hutch--scopes nil "Scopes being reviewed.")
+(defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
+(defvar-local hutch--cancel-fns nil "List of cancel functions for in-progress reviews.")
+(defvar-local hutch--progress nil "Alist of (SCOPE-LABEL . (CURRENT . MAX)) for in-flight scopes.")
+(defvar-local hutch--discarded nil "When non-nil, review is discarded — all commands refuse.")
+
+;; Magit's auto-lookup for section keymaps uses `magit-TYPE-section-map',
+;; which would force a `magit-' prefix we cannot adopt.  Instead we name
+;; these with the package prefix and attach them explicitly via the
+;; section's `keymap' slot inside the inserters below.
+(defvar-keymap hutch-suggestion-section-map
   :parent magit-section-mode-map
   "m" #'hutch-suggestion-queue
   "x" #'hutch-suggestion-reject)
 
-(defvar-keymap magit-review-comment-section-map
+(defvar-keymap hutch-comment-section-map
   :parent magit-section-mode-map
   "x" #'hutch-suggestion-reject)
 
@@ -48,7 +62,7 @@
                :background (face-background face nil t)))
 
 (defun hutch--badge-image (label face)
-  "Return a propertized string displaying an SVG badge for LABEL.
+  "Return a propertized string displaying an SVG badge for LABEL using FACE.
 Prefix with an invisible zero-width character so it interacts cleanly
 with transient hiding."
   (concat "\u200b" (propertize " " 'display (hutch--badge label face))))
@@ -101,6 +115,7 @@ with transient hiding."
   "Face for invalid finding titles (apply failed).")
 
 (defun hutch--state-face (state)
+  "Return the face symbol for finding STATE, or nil for unknown states."
   (pcase state
     ('applied   'hutch-finding-applied)
     ('dismissed 'hutch-finding-dismissed)
@@ -109,8 +124,8 @@ with transient hiding."
 
 ;;; --- Section inserters ---
 
-(defconst finding-locator-format "%s:%s"
-  "Finding locator is a file:lines pair")
+(defconst hutch--finding-locator-format "%s:%s"
+  "Format string for the file:lines locator on each finding.")
 
 (defconst hutch-badge-labels
   '(suggestion "SUGGESTION" comment "COMMENT" lgtm "LGTM"))
@@ -128,6 +143,7 @@ with transient hiding."
   "Face for lgtm badges.")
 
 (defun hutch--longest-finding-locator (findings)
+  "Return the width of the longest locator + badge label across FINDINGS."
   (seq-max
    (mapcar (lambda (f)
              (let* ((file         (plist-get f :file))
@@ -136,7 +152,7 @@ with transient hiding."
                     (label        (plist-get hutch-badge-labels type))
                     (label-length (length label)))
                (if (and file lines)
-                   (+  (length (format finding-locator-format file lines))
+                   (+  (length (format hutch--finding-locator-format file lines))
                        label-length)
                  0)))
            findings)))
@@ -150,16 +166,18 @@ with transient hiding."
                   'font-lock-face 'magit-diff-file-heading))))
 
 (defun hutch--insert-suggestion (finding longest-width)
-  "Insert a FINDING suggestion section (has a patch)."
+  "Insert a FINDING suggestion section (has a patch).
+LONGEST-WIDTH is the column at which the title should be aligned."
   (let* ((state (plist-get finding :state))
          (badge-label (plist-get hutch-badge-labels 'suggestion))
          (badge-label (if (eq state 'queued) (concat badge-label " / " "Queued") badge-label))
          (width (- longest-width (length badge-label))))
-    (magit-insert-section (review-suggestion finding t)
+    (magit-insert-section sec (review-suggestion finding t)
+      (oset sec keymap 'hutch-suggestion-section-map)
       (magit-insert-heading
         (hutch--badge-image badge-label 'hutch-badge-suggestion)
         (propertize (format (format " %%-%ds    %%s" width)
-                            (format finding-locator-format
+                            (format hutch--finding-locator-format
                                     (plist-get finding :file)
                                     (plist-get finding :lines))
                             (plist-get finding :title))
@@ -169,14 +187,16 @@ with transient hiding."
       (hutch--insert-patch-lines (plist-get finding :patch)))))
 
 (defun hutch--insert-comment (finding longest-width)
-  "Insert a FINDING:comment section (no patch).  Press `x' to dismiss."
+  "Insert a FINDING:comment section (no patch).  Press `x' to dismiss.
+LONGEST-WIDTH is the column at which the title should be aligned."
   (let* ((badge-label (plist-get hutch-badge-labels 'comment))
          (width (- longest-width (length badge-label))))
-    (magit-insert-section (review-comment finding t)
+    (magit-insert-section sec (review-comment finding t)
+      (oset sec keymap 'hutch-comment-section-map)
       (magit-insert-heading
         (hutch--badge-image badge-label 'hutch-badge-comment)
         (propertize (format (format " %%-%ds    %%s" width)
-                            (format finding-locator-format
+                            (format hutch--finding-locator-format
                                     (plist-get finding :file)
                                     (plist-get finding :lines))
                             (plist-get finding :title))
@@ -184,14 +204,16 @@ with transient hiding."
       (hutch--insert-desc (plist-get finding :desc)))))
 
 (defun hutch--insert-finding (finding longest-width)
-  "Insert FINDING based on its :type."
+  "Insert FINDING based on its :type.
+LONGEST-WIDTH is the column at which the title should be aligned."
   (pcase (plist-get finding :type)
     ('lgtm       (hutch--insert-lgtm finding))
     ('suggestion (hutch--insert-suggestion finding longest-width))
     ('comment    (hutch--insert-comment finding longest-width))))
 
 (defun hutch--insert-findings (findings display-label section-label result)
-  "Insert FINDINGS under DISPLAY-LABEL heading, keyed by SECTION-LABEL."
+  "Insert FINDINGS under DISPLAY-LABEL heading, keyed by SECTION-LABEL.
+RESULT is the per-scope plist; used to surface token counts in the header."
   (magit-insert-section (review-group section-label)
     (magit-insert-heading
       (propertize display-label 'font-lock-face 'magit-section-heading)
@@ -290,12 +312,6 @@ Aborts if the scope's index has changed since the review was generated."
 
 ;;; --- Buffer and entry point ---
 
-(defvar-local hutch--scopes nil "Scopes being reviewed.")
-(defvar-local hutch--results nil "Alist of (LABEL . RESULT).")
-(defvar-local hutch--cancel-fns nil "List of cancel functions for in-progress reviews.")
-(defvar-local hutch--progress nil "Alist of (SCOPE-LABEL . (CURRENT . MAX)) for in-flight scopes.")
-(defvar-local hutch--discarded nil "When non-nil, review is discarded — all commands refuse.")
-
 (defun hutch--ensure-active ()
   "Signal an error if the review is discarded.
 Call from any interactive command that mutates state."
@@ -309,7 +325,7 @@ runs next time."
   (interactive)
   (cond
    (hutch--discarded (message "Already discarded."))
-   ((y-or-n-p "Discard this review? Findings will be frozen for reference. ")
+   ((y-or-n-p "Discard this review (findings will be frozen for reference)? ")
     (setq hutch--discarded t)
     (dolist (scope hutch--scopes)
       (hutch--cache-evict (plist-get scope :hash)))
@@ -477,6 +493,6 @@ to \"...\" before the first tick arrives."
                              (lambda (scope current max)
                                (hutch--render-progress buf scope current max))))))))
 
-(provide 'magit-hutch-ui)
+(provide 'hutch-ui)
 
-;;; magit-hutch-ui.el ends here
+;;; hutch-ui.el ends here
