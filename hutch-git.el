@@ -119,11 +119,12 @@ Return the diff string or nil if empty."
 
 (defun hutch--patch-apply (scope patch &optional check)
   "Apply PATCH for SCOPE.  When CHECK is non-nil, dry-run (git apply --check).
-For staged scope, applies to BOTH the index and working tree (--index);
-for branch/unpushed scopes, applies to the working tree only.
-With --index, working tree and index stay in sync — but if the user has
-unstaged edits in the file, the apply will fail (and the finding is
-marked `invalid').
+For staged scope:
+  - verification (CHECK non-nil) uses --cached, against the index only,
+    so unrelated unstaged edits in the working tree don't fail the check;
+  - real apply uses --index, applying to both index and working tree
+    (which requires a clean working tree for the affected file).
+For branch/unpushed scopes, applies to the working tree only.
 Return (OK . OUTPUT) where OUTPUT is the stderr from git on failure."
   (let* ((head (plist-get scope :head))
          (base (plist-get scope :base))
@@ -133,7 +134,7 @@ Return (OK . OUTPUT) where OUTPUT is the stderr from git on failure."
          (args (delq nil
                      (list "apply"
                            (when check  "--check")
-                           (when staged "--index")
+                           (when staged (if check "--cached" "--index"))
                            "--"
                            temp-patch))))
     (with-temp-file temp-patch (insert normalized))
@@ -142,6 +143,61 @@ Return (OK . OUTPUT) where OUTPUT is the stderr from git on failure."
           (let ((exit (apply #'process-file "git" nil (list t t) nil args)))
             (cons (zerop exit) (string-trim (buffer-string)))))
       (delete-file temp-patch))))
+
+(defun hutch--read-scope-file (scope path)
+  "Read PATH at the revision for SCOPE and return its content.
+For staged scope reads the index version (`git show :PATH'); for branch
+and unpushed reads at HEAD (`git show HEAD:PATH').  Returns nil if the
+file does not exist at the scope's ref."
+  (let* ((head   (plist-get scope :head))
+         (staged (and (null head) (null (plist-get scope :base))))
+         (ref    (if staged (format ":%s" path) (format "%s:%s" (or head "HEAD") path))))
+    (when (magit-git-success "cat-file" "-e" ref)
+      (with-temp-buffer
+        (magit-git-insert "show" ref)
+        (buffer-string)))))
+
+(defun hutch--find-occurrences (haystack needle)
+  "Return 1-based line numbers of each NEEDLE start in HAYSTACK.
+Empty NEEDLE returns nil."
+  (unless (or (null needle) (string-empty-p needle))
+    (let ((pos 0) (positions '()))
+      ;; Pass 1: collect 0-based positions via string-search.
+      (while (setq pos (string-search needle haystack pos))
+        (push pos positions)
+        (setq pos (1+ pos)))
+      (when positions
+        (setq positions (nreverse positions))
+        ;; Pass 2: walk haystack once, counting newlines.  For each
+        ;; position (in sorted order), record the current line.
+        (let ((line 1) (idx 0) (lines '()))
+          (dolist (p positions)
+            (while (< idx p)
+              (when (eq (aref haystack idx) ?\n)
+                (setq line (1+ line)))
+              (setq idx (1+ idx)))
+            (push line lines))
+          (nreverse lines))))))
+
+(defun hutch--diff-strings (file before after)
+  "Generate a unified diff for FILE between BEFORE and AFTER strings.
+Returns the diff text in standard `--- a/FILE` / `+++ b/FILE` form."
+  (let ((before-tmp (make-temp-file "hutch-before-"))
+        (after-tmp  (make-temp-file "hutch-after-")))
+    (unwind-protect
+        (progn
+          (with-temp-file before-tmp (insert before))
+          (with-temp-file after-tmp  (insert after))
+          (with-temp-buffer
+            (let ((exit (call-process "diff" nil t nil "-u"
+                                     "--label" (format "a/%s" file)
+                                     "--label" (format "b/%s" file)
+                                     before-tmp after-tmp)))
+              (if (>= exit 2)
+                  (error "diff failed with exit code %d" exit)
+                (buffer-string)))))
+      (delete-file before-tmp)
+      (delete-file after-tmp))))
 
 (defun hutch--git-log (path max-count)
   "Run git log for PATH, limiting entries to MAX-COUNT.

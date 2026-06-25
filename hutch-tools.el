@@ -21,10 +21,13 @@
 
 ;;; Commentary:
 
-;; Tool implementations exposed to the LLM: search_codebase, read_file,
-;; surrounding_context, and submit_review.  Submission uses a closure
-;; over a result-box so the agent loop can collect findings without
-;; relying on global state.
+;; Tool implementations exposed to the LLM.  Core tools (always on):
+;; read_diff, verify_block, submit_review.  Optional tools gated by
+;; `hutch-enabled-tools': search_codebase, read_file, surrounding_context,
+;; git_log, git_blame.  Submission uses a closure over a result-box so
+;; the agent loop can collect findings without relying on global state.
+;; Suggestions arrive as SEARCH/REPLACE blocks (`old_lines'/`new_lines');
+;; the unified diff is generated server-side by `hutch--gate-patch'.
 
 ;;; Code:
 
@@ -42,6 +45,16 @@
   `(let ((default-directory ,root))
      ,@body))
 
+(defun hutch--glob-to-pathspec (file-glob)
+  "Translate FILE-GLOB to a git pathspec.
+Wraps `**' globs in `:(glob)' magic; leaves explicit pathspecs alone.
+Returns \".\" (match everything) when FILE-GLOB is nil."
+  (cond ((null file-glob) ".")
+        ((and (string-match-p "\\*\\*" file-glob)
+              (not (string-prefix-p ":(" file-glob)))
+         (concat ":(glob)" file-glob))
+        (t file-glob)))
+
 (defun hutch--tool-search-codebase (root pattern &optional file-glob)
   "Search ROOT for PATTERN using git grep.  Optionally filter by FILE-GLOB.
 PATTERN is extended POSIX regex (use \\=`|\\=' for alternation,
@@ -49,33 +62,20 @@ PATTERN is extended POSIX regex (use \\=`|\\=' for alternation,
 \\=`**\\=' magic-glob syntax is applied automatically."
   (hutch--with-cur-dir
    root
-   (hutch--log "tool" "search_codebase: %s %s" pattern (or file-glob ""))
-   (let* ((pathspec (cond
-                     ((null file-glob) ".")
-                     ;; Plain `**/*.java' fails as a literal pathspec;
-                     ;; wrap in `:(glob)' magic so it actually matches.
-                     ((and (string-match-p "\\*\\*" file-glob)
-                           (not (string-prefix-p ":(" file-glob)))
-                      (concat ":(glob)" file-glob))
-                     (t file-glob)))
-          (raw (with-temp-buffer
-                 (magit-git-insert "grep" "-n" "-E" "-e" pattern "--" pathspec)
-                 (buffer-string)))
-          ;; Cap output so a too-broad regex doesn't blow up the model's
-          ;; context or drown the per-PR log.  Return up to ~80 matches
-          ;; and tell the model to narrow if it wants more.
-          (lines (split-string raw "\n" t))
+   (let* ((pathspec  (hutch--glob-to-pathspec file-glob))
+          (lines     (magit-git-lines "grep" "-n" "-E" "-e" pattern "--" pathspec))
           (max-lines 80)
-          (truncated? (> (length lines) max-lines))
-          (kept (seq-take lines max-lines))
-          (result (string-join kept "\n"))
-          (result (if truncated?
-                      (format "%s\n[... truncated: %d/%d matches shown. Narrow with a more specific pattern or a file-glob.]"
-                              result max-lines (length lines))
-                    result)))
-     (hutch--log "tool" "search_codebase: %d chars returned (%d/%d matches)"
-                 (length result) (length kept) (length lines))
-     (if (string-empty-p result) "No matches found." result))))
+          (truncated (> (length lines) max-lines))
+          (kept      (seq-take lines max-lines))
+          (body      (string-join kept "\n")))
+     (hutch--log "tool" "search_codebase: %s %s -> %d/%d matches"
+                 pattern (or file-glob "") (length kept) (length lines))
+     (cond
+      ((null lines) "No matches found.")
+      (truncated
+       (format "%s\n[... truncated: %d/%d matches shown. Narrow with a more specific pattern or a file-glob.]"
+               body max-lines (length lines)))
+      (t body)))))
 
 (defun hutch--tool-read-file (root scope path &optional start-line end-line)
   "Read PATH at the revision for SCOPE relative to ROOT.
@@ -83,21 +83,15 @@ For staged scope reads the index version; for branch/unpushed reads at HEAD.
 Optionally restrict to START-LINE..END-LINE."
   (hutch--with-cur-dir
    root
-   (let* ((head   (plist-get scope :head))
-          (staged (and (null head) (null (plist-get scope :base))))
-          (ref    (if staged (format ":%s" path) (format "%s:%s" (or head "HEAD") path))))
-     (hutch--log "tool" "read_file: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
-     (if (not (magit-git-success "cat-file" "-e" ref))
-         (format "File not found: %s" path)
-       (let* ((content (with-temp-buffer
-                         (magit-git-insert "show" ref)
-                         (buffer-string)))
-              (lines (split-string content "\n"))
+   (hutch--log "tool" "read_file: %s [%s-%s]" path (or start-line "1") (or end-line "end"))
+   (if-let* ((content (hutch--read-scope-file scope path)))
+       (let* ((lines (split-string content "\n"))
               (start (max 0 (1- (or start-line 1))))
               (end   (min (length lines) (or end-line (length lines))))
               (slice (seq-subseq lines start end)))
          (hutch--log "tool" "read_file: %d lines returned" (length slice))
-         (string-join slice "\n"))))))
+         (string-join slice "\n"))
+     (format "File not found: %s" path))))
 
 (defun hutch--tool-git-log (root path &optional max-count)
   "Show commit history for PATH within ROOT.
@@ -119,19 +113,36 @@ Optionally restrict to START-LINE..END-LINE."
      (hutch--log "tool" "git_blame: %d chars returned" (length result))
      (if (string-empty-p result) "No blame data found." result))))
 
-(defun hutch--tool-verify-patch-for-scope (root scope patch)
-  "Dry-run PATCH with git apply --check for SCOPE within ROOT.
-Returns \"OK\" on success or \"FAIL: <git error>\" on failure."
+(defun hutch--tool-verify-block (root scope file old-lines)
+  "Verify OLD-LINES uniquely matches in FILE within SCOPE rooted at ROOT.
+Returns one of:
+  OK: text found uniquely at line N in FILE
+  NOT_FOUND in FILE.  Re-read the file and verify exact contents.
+  AMBIGUOUS in FILE: matches N times.  Add more surrounding lines."
   (hutch--with-cur-dir
    root
-   (let* ((result (hutch--patch-apply scope patch t))
-          (ok    (car result))
-          (out   (cdr result)))
-     (hutch--log "tool" "verify_patch: %d chars [%s] → %s"
-                 (length patch) (plist-get scope :scope) (if ok "OK" out))
-     (if ok
-         "OK — patch applies cleanly."
-       (format "FAIL — git apply: %s" out)))))
+   (let* ((source (hutch--read-scope-file scope file)))
+     (cond
+      ((null source)
+       (let ((msg (format "File not found at scope ref: %s" file)))
+         (hutch--log "tool" "verify_block: %s" msg)
+         msg))
+      (t
+       (let ((hits (hutch--find-occurrences source old-lines)))
+         (cond
+          ((= 1 (length hits))
+           (let ((msg (format "OK: text found uniquely at line %d in %s" (car hits) file)))
+             (hutch--log "tool" "verify_block: %s" msg)
+             msg))
+          ((zerop (length hits))
+           (let ((msg (format "NOT_FOUND in %s. Re-read the file and verify exact contents (including whitespace)." file)))
+             (hutch--log "tool" "verify_block: not found in %s" file)
+             msg))
+          (t
+           (let ((msg (format "AMBIGUOUS in %s: matches %d times. Add more surrounding lines to disambiguate."
+                              file (length hits))))
+             (hutch--log "tool" "verify_block: %d matches in %s" (length hits) file)
+             msg)))))))))
 
 (defun hutch--tool-surrounding-context (root path line &optional depth)
   "Return enclosing definitions around LINE in PATH within ROOT using Tree-sitter.
@@ -159,7 +170,7 @@ Returns up to DEPTH levels (default 1), innermost first."
 
 (defcustom hutch-enabled-tools '(search-codebase surrounding-context)
   "Optional tools available to the review agent.
-The core tools (read-diff, verify-patch, submit-review) are always included."
+The core tools (read-diff, verify-block, submit-review) are always included."
   :type '(set (const :tag "Search codebase" search-codebase)
               (const :tag "Git log" git-log)
               (const :tag "Git blame" git-blame)
@@ -182,15 +193,23 @@ Use this to inspect the actual changes before submitting findings."
                      :type string
                      :description "File path from the manifest")))
      (gptel-make-tool
-      :function (lambda (patch) (hutch--tool-verify-patch-for-scope root scope patch))
-      :name "verify_patch"
-      :description "Dry-run a unified diff patch with git apply --check. \
-Returns \"OK\" if the patch applies cleanly, or the git error if not. \
-Call this before submit_review for any finding that includes a patch. \
-For new files, the patch source must be \"--- /dev/null\", not \"--- a/file\"."
-      :args '((:name "patch"
+      :function (lambda (file old_lines)
+                  (hutch--tool-verify-block root scope file old_lines))
+      :name "verify_block"
+      :description "Check that OLD_LINES uniquely matches in FILE at the \
+scope's reference (index for staged, HEAD for branch/unpushed). \
+Returns:
+  OK: unique match at line N
+  NOT_FOUND with closest-candidate context
+  AMBIGUOUS with all matching lines and surrounding context
+Use this freely during iteration to confirm a block is unique before \
+including it in submit_review.  Cheap; no git/network involved."
+      :args '((:name "file"
                      :type string
-                     :description "Unified diff patch to verify")))
+                     :description "File path relative to repo root")
+              (:name "old_lines"
+                     :type string
+                     :description "Exact verbatim text from the file to verify is uniquely matchable")))
      (gptel-make-tool
       :function (lambda (findings)
                   (hutch--log "tool" "submit_review: %d findings" (length findings))
@@ -198,24 +217,27 @@ For new files, the patch source must be \"--- /dev/null\", not \"--- a/file\"."
                   "Review submitted.")
       :name "submit_review"
       :description "Submit your final code review findings. You MUST call this \
-exactly once when your review is complete. Every review must end with this call."
+exactly once when your review is complete. Every review must end with this call. \
+Suggestions use SEARCH/REPLACE blocks: OLD_LINES is the exact verbatim text from \
+the file (must match uniquely — use verify_block first if unsure); NEW_LINES is \
+the replacement text. The unified diff is generated server-side; you do not \
+author diff syntax."
       :args '((:name "findings"
                      :type array
                      :description "Array of review findings"
                      :items (:type object
                                    :properties
-                                   (:file (:type string :description "File path")
-                                          :lines (:type string
-                                                        :description "Line range of the actual changed \
-lines (the + or - lines), not the hunk header start. \
-E.g. if @@ -21,6 +21,6 @@ and the changed line is 3rd in the hunk, \
-the line number is 23, not 21. \
-Never use line numbers from read_file or search_codebase.")
+                                   (:file (:type string :description "File path relative to repo root")
                                           :title (:type string :description "Short issue title, max 80 chars")
                                           :description (:type string
                                                               :description "Explanation of the issue, max 1000 chars")
-                                          :patch (:type string
-                                                        :description "Unified diff patch applicable with git apply, or null")
+                                          :old_lines (:type string
+                                                            :description "Exact verbatim text to replace. \
+MUST appear in the file exactly once.  Copy whitespace and indentation verbatim. \
+If your text matches multiple locations, include more surrounding lines for uniqueness. \
+Omit for comment-only findings.")
+                                          :new_lines (:type string
+                                                            :description "Replacement text.  Omit for comment-only findings.")
                                           :lgtm (:type boolean :description "true if file has no issues")))))))
      (when (memq 'read-file hutch-enabled-tools)
        (list (gptel-make-tool

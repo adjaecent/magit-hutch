@@ -65,11 +65,13 @@ Returns the finding (mutated if the transition is allowed; unchanged otherwise).
       (setq finding (plist-put finding :state state)))
     finding))
 
-(defun hutch--make-finding (type file lines title desc patch state)
+(defun hutch--make-finding (type file lines title desc patch state &optional old-lines new-lines)
   "Create a finding plist of TYPE for FILE with LINES and PATCH.
 TITLE and DESC are short and long description text.  STATE is the
-initial finding state (typically `pending').  TYPE must be one of
-`hutch--valid-finding-types'."
+initial finding state (typically `pending').  OLD-LINES and NEW-LINES,
+when supplied, are the SEARCH/REPLACE block the LLM submitted (kept
+for traceability; the actionable representation is PATCH).  TYPE must
+be one of `hutch--valid-finding-types'."
   (unless (memq type hutch--valid-finding-types)
     (error "Invalid finding type %s, must be one of %s" type hutch--valid-finding-types))
   (list :id (gensym "f-")
@@ -79,21 +81,27 @@ initial finding state (typically `pending').  TYPE must be one of
         :title title
         :desc desc
         :patch patch
-        :state state))
+        :state state
+        :old-lines old-lines
+        :new-lines new-lines))
 
 (defun hutch--normalize-tool-finding (raw)
-  "Normalize RAW plist finding from submit_review into a finding plist."
-  (let* ((file  (or (plist-get raw :file) "unknown"))
-         (lgtm  (eq (plist-get raw :lgtm) t))
-         (patch (plist-get raw :patch))
-         (lines (or (plist-get raw :lines) "?"))
-         (title (hutch--str-truncate (or (plist-get raw :title) "Issue") 80))
-         (desc  (hutch--str-truncate (or (plist-get raw :description) "") 1000)))
+  "Normalize RAW plist finding from submit_review into a finding plist.
+Pure shape conversion — no scope-aware work, no validation, no patch
+generation.  Suggestions land with :old-lines/:new-lines populated and
+:patch unset."
+  (let* ((file      (or (plist-get raw :file) "unknown"))
+         (lgtm      (eq (plist-get raw :lgtm) t))
+         (old-lines (plist-get raw :old_lines))
+         (new-lines (plist-get raw :new_lines))
+         (raw-lines (plist-get raw :lines))
+         (title     (hutch--str-truncate (or (plist-get raw :title) "Issue") 80))
+         (desc      (hutch--str-truncate (or (plist-get raw :description) "") 1000)))
     (cond
      (lgtm (hutch--make-finding 'lgtm file nil nil nil nil 'applied))
-     ((and patch (stringp patch) (not (string-empty-p patch)))
-      (hutch--make-finding 'suggestion file lines title desc patch 'pending))
-     (t (hutch--make-finding 'comment file lines title desc nil 'applied)))))
+     ((and old-lines new-lines)
+      (hutch--make-finding 'suggestion file "?" title desc nil 'pending old-lines new-lines))
+     (t (hutch--make-finding 'comment file (or raw-lines "?") title desc nil 'applied)))))
 
 (provide 'hutch-findings)
 
