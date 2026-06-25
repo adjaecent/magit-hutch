@@ -73,6 +73,7 @@ Returns nil when `hutch-cache-enabled' is nil."
          (new-list (thread-last alist
                                 (assoc-delete-all hash)
                                 (cons new-entry))))
+    (make-directory (file-name-directory cache-file) t)
     (with-temp-file cache-file (prin1 new-list (current-buffer)))))
 
 (defun hutch--cache-evict (hash)
