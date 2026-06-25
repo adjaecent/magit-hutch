@@ -1,6 +1,6 @@
 #+title: magit-hutch: code-review agent for emacs
 
-=magit-hutch= is a code-review agent that runs inside emacs. Invoke it from a [[https://magit.vc][magit]] buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
+=hutch= is a code-review agent that runs inside emacs. Invoke it from a [[https://magit.vc][magit]] buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
 It sends a manifest of changed files (not full diffs) and lets the agent fetch what it needs. The agent has access to the following tools:
 
@@ -15,7 +15,7 @@ Tools are run with baked-in guardrails to not overburden context length. Hutch p
 
 ** Installation
 
-magit-hutch uses [[https://github.com/karthink/gptel][gptel]] to talk to LLM backends.  Pick an install method
+=hutch= uses [[https://github.com/karthink/gptel][gptel]] to talk to LLM backends.  Pick an install method
 that handles deps for you (=straight.el=, =elpaca=) — they'll pull in
 =magit=, =gptel=, and =svg-lib= automatically.  We recommend SOTA models
 only, since the output from cheaper models can be unreliable.
@@ -75,7 +75,7 @@ and retry — that forces a refresh regardless of cached state.
 *** Manual clone
 
 Install =magit=, =gptel=, and =svg-lib= via your usual package manager,
-then add magit-hutch to your =load-path=:
+then add =hutch= to your =load-path=:
 
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/path/to/magit-hutch")
