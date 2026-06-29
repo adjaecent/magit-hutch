@@ -1,3 +1,7 @@
+name: Melpa
+
+on: [push, pull_request]
+
 jobs:
   melpa-build:
     runs-on: ubuntu-latest
