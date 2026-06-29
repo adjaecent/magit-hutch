@@ -1,0 +1,54 @@
+jobs:
+  melpa-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs-version: ['29.1', '29.4', '30.1', 'snapshot']
+
+    steps:
+      - name: Check out hutch
+        uses: actions/checkout@v6
+        with:
+          path: hutch
+
+      - name: Check out melpa
+        uses: actions/checkout@v6
+        with:
+          repository: melpa/melpa
+          path: melpa
+
+      - name: Set up Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs-version }}
+
+      - name: Write recipe pointing at local checkout
+        run: |
+          echo '(hutch :fetcher git :url "file://${{ github.workspace }}/hutch")' \
+            > melpa/recipes/hutch
+          cat melpa/recipes/hutch
+
+      - name: Build package with MELPA
+        working-directory: melpa
+        run: make recipes/hutch
+
+  # melpazoid <https://github.com/riscy/melpazoid> build checks.
+  melpazoid:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with: { python-version: '3.10' }
+    - name: Install
+      run: |
+        sudo apt-get install emacs && emacs --version
+        git clone https://github.com/riscy/melpazoid.git ~/melpazoid
+    - name: Run
+      env:
+        LOCAL_REPO: ${{ github.workspace }}
+        RECIPE: (hutch :fetcher git :url "file://${{ github.workspace }}")
+        WARN_IS_ERROR: false
+        EXIST_OK: false
+      run: echo $GITHUB_REF && make -C ~/melpazoid

@@ -3,73 +3,19 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  melpa-build:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        emacs-version: ['29.1', '29.4', '30.1', 'snapshot']
-    steps:
-      - name: Check out hutch
-        uses: actions/checkout@v4
-        with:
-          path: hutch
-
-      - name: Check out melpa
-        uses: actions/checkout@v4
-        with:
-          repository: melpa/melpa
-          path: melpa
-
-      - name: Set up Emacs
-        uses: purcell/setup-emacs@master
-        with:
-          version: ${{ matrix.emacs-version }}
-
-      - name: Write recipe pointing at local checkout
-        run: |
-          echo '(hutch :fetcher git :url "file://${{ github.workspace }}/hutch")' \
-            > melpa/recipes/hutch
-          cat melpa/recipes/hutch
-
-      - name: make recipes/hutch
-        working-directory: melpa
-        run: make recipes/hutch
-
-  package-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: purcell/setup-emacs@master
-        with:
-          version: '29.1'
-      - uses: leotaku/elisp-check@master
-        with:
-          check: package-lint
-          file: hutch.el
-          ignore_warnings: true
-
-  checkdoc:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: purcell/setup-emacs@master
-        with:
-          version: '29.1'
-      - uses: leotaku/elisp-check@master
-        with:
-          check: checkdoc
-          file: '[!.]*.el'
-
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
       - uses: purcell/setup-emacs@master
         with:
           version: '29.1'
+
       - name: Install tree-sitter grammars
         run: bin/install-grammars
+
       - uses: leotaku/elisp-check@master
         with:
           check: ert
