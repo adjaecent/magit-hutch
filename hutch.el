@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2026 Akshay Gupta
 ;;
-;; Author: Akshay Gupta
+;; Author: Akshay Gupta <mail@kitallis.in>
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;; Package-Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (magit "4.0") (gptel "0.9.9.3") (svg-lib "0.3"))

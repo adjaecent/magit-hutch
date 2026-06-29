@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2026 Akshay Gupta
 ;;
-;; Author: Akshay Gupta
+;; Author: Akshay Gupta <mail@kitallis.in>
 ;; Assisted-by: Claude:claude-opus-4-7
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;;

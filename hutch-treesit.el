@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2026 Akshay Gupta
 ;;
-;; Author: Akshay Gupta
+;; Author: Akshay Gupta <mail@kitallis.in>
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;;
 ;; This program is free software; you can redistribute it and/or modify
