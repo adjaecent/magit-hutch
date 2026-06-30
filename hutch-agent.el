@@ -52,7 +52,7 @@ Defaults to `gptel-backend' if nil.  Set this to a gptel backend, e.g.:
           :key (getenv \"ANTHROPIC_API_KEY\")
           :models \\='(claude-sonnet-4-6)))")
 
-(defcustom hutch-max-tool-rounds 20
+(defcustom hutch-max-tool-rounds 40
   "Maximum number of tool-call rounds per review scope before giving up."
   :type 'integer
   :group 'hutch)
