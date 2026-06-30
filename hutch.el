@@ -5,7 +5,7 @@
 ;; Author: Akshay Gupta <mail@kitallis.in>
 ;; URL: https://github.com/adjaecent/magit-hutch
 ;; Package-Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (magit "4.0") (gptel "0.9.9.3") (svg-lib "0.3"))
+;; Package-Requires: ((emacs "29.1") (magit "4.0") (transient "0.7.4") (gptel "0.9.9.3") (svg-lib "0.3"))
 ;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
