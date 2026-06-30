@@ -44,12 +44,8 @@ jobs:
         run: make recipes/hutch
 
   # melpazoid <https://github.com/riscy/melpazoid> build checks.
-  # continue-on-error: ubuntu-24.04's apt-emacs 30.2 ships a built-in `transient'
-  # that conflicts with magit's bundled version, causing spurious "already
-  # defined as something else than a generic function" errors on every file
-  # that requires magit.  The errors are an environment artifact, not a defect
-  # in real installs — melpazoid still produces useful FYI output, so we run
-  # it informationally without blocking the workflow.
+  # continue-on-error: melpazoid's docker pulls latest Emacs from a rolling PPA,
+  # which can introduce transitive dep conflicts
   melpazoid:
     runs-on: ubuntu-latest
     continue-on-error: true
