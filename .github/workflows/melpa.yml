@@ -22,8 +22,14 @@ jobs:
           repository: melpa/melpa
           path: melpa
 
+      - name: Cache nix store
+        uses: actions/cache@v4
+        with:
+          path: /nix
+          key: nix-emacs-${{ matrix.emacs-version }}-v1
+
       - name: Set up Emacs
-        uses: purcell/setup-emacs@master
+        uses: purcell/setup-emacs@v8.0
         with:
           version: ${{ matrix.emacs-version }}
 
@@ -38,8 +44,15 @@ jobs:
         run: make recipes/hutch
 
   # melpazoid <https://github.com/riscy/melpazoid> build checks.
+  # continue-on-error: ubuntu-24.04's apt-emacs 30.2 ships a built-in `transient'
+  # that conflicts with magit's bundled version, causing spurious "already
+  # defined as something else than a generic function" errors on every file
+  # that requires magit.  The errors are an environment artifact, not a defect
+  # in real installs — melpazoid still produces useful FYI output, so we run
+  # it informationally without blocking the workflow.
   melpazoid:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
     - uses: actions/checkout@v6
     - name: Set up Python
