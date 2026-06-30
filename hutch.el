@@ -33,7 +33,7 @@
 ;; `hutch-add-review-binding' in your init file:
 ;;
 ;;   (with-eval-after-load 'magit
-;;     (hutch-add-review-binding)) ;; default: `R'
+;;     (hutch-add-review-binding)) ;; default key: "R"
 ;;     ;; or pick your own key:
 ;;     ;; (hutch-add-review-binding "K")
 ;;
