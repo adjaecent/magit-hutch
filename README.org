@@ -91,6 +91,7 @@ then add =hutch= to your =load-path=:
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/path/to/magit-hutch")
 (require 'hutch)
+
 (setq hutch-backend
       (gptel-make-anthropic "Claude"
         :key (getenv "ANTHROPIC_API_KEY")
@@ -127,6 +128,7 @@ Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommen
 #+begin_src emacs-lisp
 (use-package hutch
   :straight (:host github :repo "adjaecent/magit-hutch")
+  :after magit
   :config
   (setq gptel-log-level 'info)
   (setq hutch-backend
@@ -137,27 +139,29 @@ Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommen
   ;; unpushed: commits not yet pushed upstream
   ;; branch: commits in this branch not merged against default branch (main, master etc.)
   (setq hutch-scopes '(:staged :branch))
-  ;; number of rounds before the agent gives up, 20 is default
+  ;; number of rounds before the agent gives up, 40 is default
   (setq hutch-max-tool-rounds 20)
   ;; optional tools the agent can call.  Defaults to (search-codebase
   ;; surrounding-context).  read-file is opt-in (can blow context),
   ;; git-log/git-blame are available but disabled by default.
-  (setq hutch-enabled-tools '(read-file search-codebase surrounding-context)))
+  (setq hutch-enabled-tools '(read-file search-codebase surrounding-context))
+  ;; bind under `d R' in the `magit-diff' transient (default key is "R")
+  (hutch-add-review-binding))
 
 #+end_src
 
 ** Usage
 
-|--------------+---------------------+--------------------------------------------|
-| where        | shortcut            | action                                     |
-|--------------+---------------------+--------------------------------------------|
-| magit buffer | =d= followed by =R= | start a review for enabled scopes          |
-| hutch buffer | =C-c C-k=           | cancel review                              |
-| hutch buffer | =m=                 | queue a suggestion to be applied           |
-| hutch buffer | =A=                 | bulk-apply all patch suggestions           |
-| hutch buffer | =x=                 | dismiss a review suggestion (collapses)    |
-| hutch buffer | =TAB=               | open/close a review (and underlying nests) |
-|--------------+---------------------+--------------------------------------------|
+|--------------+-------------------------------------------+--------------------------------------------|
+| where        | shortcut                                  | action                                     |
+|--------------+-------------------------------------------+--------------------------------------------|
+| magit buffer | =d= followed by your bound key (e.g. =R=) | start a review for enabled scopes          |
+| hutch buffer | =C-c C-k=                                 | cancel review                              |
+| hutch buffer | =m=                                       | queue a suggestion to be applied           |
+| hutch buffer | =A=                                       | bulk-apply all patch suggestions           |
+| hutch buffer | =x=                                       | dismiss a review suggestion (collapses)    |
+| hutch buffer | =TAB=                                     | open/close a review (and underlying nests) |
+|--------------+-------------------------------------------+--------------------------------------------|
 
 ** Roadmap
 

@@ -26,8 +26,19 @@
 ;; It reviews staged changes, unpushed commits, and branch diffs
 ;; using an LLM (via gptel) with tool-calling for codebase context.
 ;;
-;; Configure a gptel backend as `hutch-backend`, then invoke the review
-;; via `d R` in `magit-diff` or `M-x hutch-magit-review`.
+;; Configure a gptel backend as `hutch-backend', then invoke a review
+;; via `M-x hutch-magit-review'.
+;;
+;; To bind it inside the `magit-diff' transient, call
+;; `hutch-add-review-binding' in your init file:
+;;
+;;   (with-eval-after-load 'magit
+;;     (hutch-add-review-binding)) ;; default: `R'
+;;     ;; or pick your own key:
+;;     ;; (hutch-add-review-binding "K")
+;;
+;; That adds the suffix next to `magit-diff-dwim', so it appears under
+;; the chosen key inside the diff popup.
 ;;
 ;; Example backends:
 ;;
@@ -49,9 +60,16 @@
 (require 'hutch-ui)
 
 ;;;###autoload
-(with-eval-after-load 'magit
-  (transient-append-suffix 'magit-diff "d"
-    '("R" "Hutch code review" hutch-magit-review)))
+(defun hutch-add-review-binding (&optional key)
+  "Add KEY as a `hutch-magit-review' suffix to the `magit-diff' transient.
+KEY defaults to \"R\".  Inserts the suffix immediately after
+`magit-diff-dwim', so it appears under KEY inside the diff popup.
+Call from your init file, ideally inside `with-eval-after-load' for
+`magit'."
+  (require 'transient)
+  (require 'magit)
+  (transient-append-suffix 'magit-diff 'magit-diff-dwim
+    `(,(or key "R") "Hutch code review" hutch-magit-review)))
 
 (provide 'hutch)
 
