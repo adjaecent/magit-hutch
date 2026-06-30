@@ -77,7 +77,7 @@ Single \"45\" yields (45 . 45)."
 TAG is a short label (e.g. \"tool\", \"llm\", \"parse\").
 FMT and ARGS are passed to `format'."
   (let ((msg (apply #'format fmt args))
-        (ts (format-time-string "%H:%M:%S")))
+        (ts (format-time-string "%T")))
     (with-current-buffer (get-buffer-create hutch--log-buffer)
       (goto-char (point-max))
       (insert (format "[%s] [%s] %s\n" ts tag msg)))))

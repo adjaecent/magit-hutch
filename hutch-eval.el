@@ -97,7 +97,7 @@ issues by the code change, not just the prose description."
     (line       . ,(hutch-eval--finding-line finding))
     (body       . ,(hutch-eval--finding-body finding))
     (has_patch  . ,(if (plist-get finding :patch) t :json-false))
-    (created_at . ,(format-time-string "%Y-%m-%dT%H:%M:%SZ" nil t))))
+    (created_at . ,(format-time-string "%FT%TZ" nil t))))
 
 (defun hutch-eval--exportable-p (finding)
   "Return non-nil if FINDING should appear in the benchmark export."
