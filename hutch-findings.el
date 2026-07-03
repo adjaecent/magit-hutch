@@ -85,6 +85,21 @@ be one of `hutch--valid-finding-types'."
         :old-lines old-lines
         :new-lines new-lines))
 
+(defun hutch--finding-for-trace (f)
+  "Coerce a finding plist F to JSON-safe values for trace emission.
+The internal shape uses symbols for `:id', `:type', and `:state';
+convert those to strings while leaving other fields untouched."
+  (list :id        (symbol-name (plist-get f :id))
+        :type      (symbol-name (plist-get f :type))
+        :file      (plist-get f :file)
+        :lines     (plist-get f :lines)
+        :title     (plist-get f :title)
+        :desc      (plist-get f :desc)
+        :patch     (plist-get f :patch)
+        :state     (symbol-name (plist-get f :state))
+        :old-lines (plist-get f :old-lines)
+        :new-lines (plist-get f :new-lines)))
+
 (defun hutch--normalize-tool-finding (raw)
   "Normalize RAW plist finding from submit_review into a finding plist.
 Pure shape conversion — no scope-aware work, no validation, no patch

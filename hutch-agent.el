@@ -202,14 +202,23 @@ Accumulates token usage in TOKEN-BOX.  Bounded by MAX-ROUNDS."
 (defun hutch--review-on-done (scope result-box token-box callback)
   "Handle successful review for SCOPE.
 Read findings from RESULT-BOX, token counts from TOKEN-BOX, call CALLBACK."
-  (let* ((result   (hutch--result-box-get result-box))
-         (tokens   (hutch--result-box-get token-box))
-         (findings (thread-last result
-                                (mapcar #'hutch--normalize-tool-finding)
-                                (hutch--run-gates scope))))
-    (hutch--log "llm" "submit_review for %s: %d findings after gates"
-                (plist-get scope :scope)
+  (let* ((result       (hutch--result-box-get result-box))
+         (tokens       (hutch--result-box-get token-box))
+         (shash        (plist-get scope :shash))
+         (scope-name   (plist-get scope :scope))
+         (findings     (thread-last result
+                                    (mapcar #'hutch--normalize-tool-finding)
+                                    (hutch--run-gates scope))))
+
+    (hutch--log "llm"
+                "submit_review for %s: %d findings after gates"
+                scope-name
                 (length findings))
+    (hutch--trace-instant "sanitized-findings"
+                          "agent"
+                          shash
+                          `(:findings ,(vconcat (mapcar #'hutch--finding-for-trace findings))))
+
     (funcall callback (hutch--make-result :ok scope findings nil tokens))))
 
 (defun hutch--review-on-error (scope callback type msg)
@@ -226,8 +235,6 @@ aborted before its callback fires."
   (unless hutch-backend
     (error "Hutch-backend is not set"))
   (let ((scope-id   (plist-get scope :shash))
-        ;; Stringify here so it's JSON-safe wherever it lands in trace args
-        ;; (per `hutch--trace-emit''s caller invariant).
         (scope-name (symbol-name (plist-get scope :scope)))
         (scope-desc (plist-get scope :desc)))
     (hutch--trace-meta-thread-name scope-id (format "scope:%s:%s" scope-name scope-desc))
