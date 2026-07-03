@@ -1,12 +1,14 @@
 (ns eval.agents
-  "Invoke hutch (via emacs --batch) and the LLM judge.  Both produce or
-consume JSON; this namespace wraps the HTTP/process plumbing."
+  "Invoke hutch (via emacs --batch) and the LLM judge.  Hutch writes a
+Perfetto trace as its single artifact; findings and stats come from
+that trace via `eval.trace`.  The judge stays HTTP JSON."
   (:require [babashka.fs :as fs]
             [babashka.http-client :as http]
             [babashka.process :refer [sh]]
             [cheshire.core :as json]
             [clojure.string :as str]
-            [eval.config :as cfg :refer [log env-or-fail]]))
+            [eval.config :as cfg :refer [log env-or-fail]]
+            [eval.trace :as trace]))
 
 ;;; --- Hutch invocation ---
 
@@ -15,58 +17,63 @@ consume JSON; this namespace wraps the HTTP/process plumbing."
 (defn log-file-for [pr-url]
   (str cfg/logs-dir "/" (str/replace pr-url #"[^A-Za-z0-9._-]+" "_") ".log"))
 
-(defn- tmp-output-path []
-  (str "/tmp/hutch-eval-out-" (System/currentTimeMillis) ".json"))
+(defn trace-dir-for [pr-url]
+  (str cfg/traces-dir "/" (str/replace pr-url #"[^A-Za-z0-9._-]+" "_")))
+
+(defn latest-trace-file
+  "Return the newest `hutch-trace-*.json' in DIR, or nil."
+  [dir]
+  (when (fs/exists? dir)
+    (->> (fs/list-dir dir)
+         (filter #(re-find #"hutch-trace-.*\.json$" (str %)))
+         (sort-by fs/last-modified-time)
+         last
+         (some-> str))))
 
 (defn- hutch-elisp-expr
-  "The single elisp expression sent to emacs --batch.  Just calls the
-canonical entry point in hutch-eval.el."
-  [repo-dir pr-url out-file]
+  "Single elisp expression sent to emacs --batch.  Sets trace-dir then
+runs the review; the Perfetto trace at TRACE-DIR is the artifact."
+  [repo-dir trace-dir]
   (format "(progn (require 'hutch-eval)
-                  (hutch-eval-batch-review %s %s %s %s %d))"
-          (pr-str repo-dir) (pr-str pr-url)
-          (pr-str cfg/hutch-model) (pr-str out-file)
+                  (setq hutch-trace-dir %s)
+                  (make-directory hutch-trace-dir t)
+                  (hutch-eval-batch-review %s %d))"
+          (pr-str trace-dir)
+          (pr-str repo-dir)
           hutch-max-rounds))
 
-(defn- read-findings
-  "Slurp + parse + cleanup the JSON file hutch wrote."
-  [out-file]
-  (try
-    (-> out-file slurp (json/parse-string true) :review_comments vec)
-    (finally (try (fs/delete out-file) (catch Exception _)))))
-
 (defn run-hutch
-  "Run hutch on REPO-DIR via emacs --batch.  Persists stderr to a per-PR
-log file.  Returns seq of review_comments (possibly empty)."
+  "Run hutch on REPO-DIR via emacs --batch, then extract findings + stats
+from the Perfetto trace it wrote.  Persists stderr to a per-PR log
+file.  Returns {:findings [...] :rounds N :input-tokens N
+:output-tokens N}.  On failure returns the same shape with empty
+findings and zero stats."
   [repo-dir pr-url]
   (fs/create-dirs cfg/logs-dir)
-  (let [out-file (tmp-output-path)
-        result   (sh cfg/emacs-bin "--batch" "--load" cfg/emacs-init
-                     "--eval" (hutch-elisp-expr repo-dir pr-url out-file))
-        log-file (log-file-for pr-url)]
+  (let [trace-dir (trace-dir-for pr-url)
+        ;; Clear stale traces from prior runs so `latest-trace-file'
+        ;; picks up only this invocation's output.
+        _         (when (fs/exists? trace-dir) (fs/delete-tree trace-dir))
+        _         (fs/create-dirs trace-dir)
+        result    (sh cfg/emacs-bin "--batch" "--load" cfg/emacs-init
+                      "--eval" (hutch-elisp-expr repo-dir trace-dir))
+        log-file  (log-file-for pr-url)
+        empty     {:findings [] :rounds 0 :input-tokens 0 :output-tokens 0}]
     (spit log-file (or (:err result) ""))
     (log "  log →" log-file)
     (cond
-      (not (zero? (:exit result))) (do (log "  hutch failed (exit" (:exit result) ")") [])
-      (not (fs/exists? out-file))  (do (log "  hutch produced no output file") [])
-      :else                         (read-findings out-file))))
+      (not (zero? (:exit result)))
+      (do (log "  hutch failed (exit" (:exit result) ")") empty)
 
-(defn- sum-pattern [content pattern]
-  (->> (re-seq pattern content)
-       (map (comp #(Integer/parseInt %) second))
-       (apply +)))
-
-(defn parse-log-stats
-  "Extract rounds and token counts from a per-PR hutch log file.
-Input tokens are usually 0 — gptel doesn't expose them in tool-use callbacks."
-  [pr-url]
-  (let [log-path (log-file-for pr-url)]
-    (if-not (fs/exists? log-path)
-      {:rounds 0 :input-tokens 0 :output-tokens 0}
-      (let [content (slurp log-path)]
-        {:rounds        (count (re-seq #"tool-result" content))
-         :input-tokens  (sum-pattern content #"\+R(\d+)")
-         :output-tokens (sum-pattern content #"\+W(\d+)")}))))
+      :else
+      (if-let [trace-file (latest-trace-file trace-dir)]
+        (try
+          (log "  trace →" trace-file)
+          (trace/extract-from-file trace-file)
+          (catch Exception e
+            (log "  trace extract failed:" (.getMessage e))
+            empty))
+        (do (log "  hutch produced no trace file at" trace-dir) empty)))))
 
 ;;; --- Judge: provider dispatch ---
 
@@ -142,11 +149,19 @@ Input tokens are usually 0 — gptel doesn't expose them in tool-use callbacks."
 (defn- format-golden [i g]
   (format "[%d] (severity=%s) %s" i (or (:severity g) "?") (:comment g)))
 
+(defn- finding-body [finding]
+  (let [title (or (:title finding) "")
+        desc  (or (:desc finding) "")
+        patch (:patch finding)]
+    (if patch
+      (format "%s\n\n%s\n\nProposed patch:\n```diff\n%s\n```" title desc patch)
+      (format "%s\n\n%s" title desc))))
+
 (defn- judge-prompt [finding goldens]
   (format "FINDING:\nPath: %s\nLine: %s\nBody: %s\n\nGOLDEN COMMENTS:\n%s"
-          (or (:path finding) "?")
-          (or (:line finding) "?")
-          (or (:body finding) "")
+          (or (:file finding) "?")
+          (or (:lines finding) "?")
+          (finding-body finding)
           (str/join "\n" (map-indexed format-golden goldens))))
 
 (def ^:private failed-judgment

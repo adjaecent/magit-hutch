@@ -9,3 +9,4 @@
 # eval artifacts
 eval/golden_comments/
 eval/logs/
+eval/traces/

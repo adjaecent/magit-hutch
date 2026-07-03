@@ -65,13 +65,24 @@
     (when (zero? (:exit r))
       (-> r :out str/trim (str/replace #"^origin/" "")))))
 
+(defn- valid-git-dir?
+  "Nonzero exit → not a git dir; used to self-heal broken clones."
+  [dir]
+  (and (fs/exists? dir)
+       (zero? (:exit (sh {:dir dir} "git" "rev-parse" "--is-inside-work-tree")))))
+
 (defn- ensure-shared-clone
-  "Clone OWNER/REPO once into clones-dir.  Idempotent."
+  "Clone OWNER/REPO once into clones-dir.  Idempotent.
+Self-heals if the dir exists but isn't a valid git repo (e.g. a prior
+clone was aborted)."
   [owner repo]
   (fs/create-dirs cfg/clones-dir)
   (let [name (str owner "__" repo)
         dir  (str cfg/clones-dir "/" name)
         url  (format "https://github.com/%s/%s.git" owner repo)]
+    (when (and (fs/exists? dir) (not (valid-git-dir? dir)))
+      (log "  removing stale clone dir" dir)
+      (fs/delete-tree dir))
     (when-not (fs/exists? dir)
       (log "  cloning shared" url)
       (shell {:dir cfg/clones-dir} "git" "clone" "--quiet" url name)

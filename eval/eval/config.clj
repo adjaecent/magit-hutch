@@ -14,6 +14,7 @@ Imported by every other namespace in the harness."
 (def martian-goldens-path "offline/golden_comments")
 (def goldens-dir "golden_comments")
 (def logs-dir    "logs")
+(def traces-dir  "traces")
 (def repo-cache  "/tmp/hutch-eval-repos")
 (def clones-dir  (str repo-cache "/_clones"))
 (def emacs-bin   "/Applications/Emacs.app/Contents/MacOS/Emacs")
