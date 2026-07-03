@@ -48,13 +48,15 @@
 
 (defun hutch--glob-to-pathspec (file-glob)
   "Translate FILE-GLOB to a git pathspec.
-Wraps `**' globs in `:(glob)' magic; leaves explicit pathspecs alone.
-Returns \".\" (match everything) when FILE-GLOB is nil."
-  (cond ((null file-glob) ".")
-        ((and (string-match-p "\\*\\*" file-glob)
-              (not (string-prefix-p ":(" file-glob)))
-         (concat ":(glob)" file-glob))
-        (t file-glob)))
+Wraps patterns containing `*' or `**' in `:(glob)' magic so wildcards
+behave predictably across path separators.  Leaves explicit pathspecs
+alone (any string already starting with `:(').  Literal filenames with
+no wildcards pass through unchanged.  Returns \".\" (match everything)
+when FILE-GLOB is nil."
+  (cond ((null file-glob)                       ".")
+        ((string-prefix-p ":(" file-glob)       file-glob)
+        ((string-match-p "\\*" file-glob)       (concat ":(glob)" file-glob))
+        (t                                      file-glob)))
 
 (defun hutch--tool-search-codebase (root pattern &optional file-glob)
   "Search ROOT for PATTERN using git grep.  Optionally filter by FILE-GLOB.
@@ -217,7 +219,8 @@ including it in submit_review.  Cheap; no git/network involved."
                      :description "Exact verbatim text from the file to verify is uniquely matchable")))
      (gptel-make-tool
       :function (lambda (findings)
-                  (let ((n (length findings)))
+                  (let* ((findings (hutch--jsonify-value findings))
+                         (n        (length findings)))
                     (hutch--with-trace "submit_review" "tool" scope-id `(:n ,n)
                       (hutch--log "tool" "submit_review: %d findings" n)
                       (hutch--result-box-set result-box (append findings nil))
@@ -251,7 +254,11 @@ Omit for comment-only findings.")
                                                         :description "Line anchor for comment-only findings, e.g. \"42\" or \"42-50\" \
 or comma-separated for multiple spots like \"42, 90, 120\".  Omit when submitting \
 old_lines/new_lines — :lines is auto-derived from the match position.")
-                                          :lgtm (:type boolean :description "true if file has no issues")))))))
+                                          :lgtm (:type boolean :description "true if file has no issues")
+                                          :verified (:type boolean
+                                                           :description "For suggestions only: set true after a successful \
+verify_block call confirmed OLD_LINES matches uniquely. Set false if you skipped verification. \
+Omit for comment-only or lgtm findings.")))))))
      (when (memq 'read-file hutch-enabled-tools)
        (list (gptel-make-tool
               :function (lambda (path &optional start-line end-line)

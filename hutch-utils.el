@@ -39,7 +39,23 @@
   "Get current contents of BOX."
   (car box))
 
-;;; --- String helpers ---
+;;; --- JSON helpers ---
+
+(defun hutch--jsonify-value (v)
+  "Coerce gptel's JSON sentinels in V to values `json-serialize' accepts.
+Walks lists and vectors recursively.  Handles `:json-false' → `:false'
+and `:json-null' → `:null'.  Other values pass through unchanged.
+
+Called at boundaries where gptel-parsed JSON enters hutch (currently
+the `submit_review' tool handler) so downstream code — result-box,
+gates, cache, trace, UI — never sees the sentinels."
+  (cond ((eq v :json-false) :false)
+        ((eq v :json-null)  :null)
+        ((consp v)          (mapcar #'hutch--jsonify-value v))
+        ((vectorp v)        (vconcat (mapcar #'hutch--jsonify-value v)))
+        (t                  v)))
+
+;;; --- Text helpers ---
 
 (defun hutch--str-truncate (str max)
   "Truncate STR to MAX chars, appending ellipsis if needed."
