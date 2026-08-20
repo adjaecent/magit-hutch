@@ -1,6 +1,6 @@
 #+title: magit-hutch: a native code-review interface for magit
 
-[[file:images/review-example.png]]
+[[./images/review-example.png]]
 
 =hutch= is a code-review agent that runs inside emacs. Invoke it from a [[https://magit.vc][magit]] buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
