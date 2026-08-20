@@ -1,5 +1,7 @@
 #+title: magit-hutch: a native code-review interface for magit
 
+[[file:images/review-example.png]]
+
 =hutch= is a code-review agent that runs inside emacs. Invoke it from a [[https://magit.vc][magit]] buffer and get a granular review around the files changed. This can be used as a developer-local review tool before code is published to forges, or other external review harnesses.
 
 It sends a manifest of changed files (not full diffs) and lets the agent fetch what it needs. The agent has access to the following tools:
@@ -122,6 +124,60 @@ Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommen
         :endpoint "/api/v1/chat/completions"
         :key (getenv "OPENROUTER_API_KEY")
         :models '(deepseek/deepseek-v4-pro)))
+#+end_src
+
+*** Reasoning / extended thinking
+
+Hutch's review loop is multi-step and benefits from reasoning models.
+Each provider's reasoning knobs are different — pass them via
+gptel's =:request-params=, which gets merged into every request body.
+
+*Anthropic* — extended thinking with a token budget. =gptel= correctly
+preserves thinking signatures across tool-use turns, which Claude
+requires (see [[https://github.com/ahyatt/llm/discussions/273][llm
+discussion #273]] for the surrounding context).
+
+#+begin_src emacs-lisp
+(setq hutch-backend
+      (gptel-make-anthropic "Claude"
+        :key (getenv "ANTHROPIC_API_KEY")
+        :models '(claude-opus-4-8)
+        :request-params '(:thinking (:type "enabled" :budget_tokens 2048))))
+#+end_src
+
+Notes for Claude:
+- =budget_tokens= minimum is 1024; sensible defaults are 2048-4096 for review loops.
+- =temperature= must be 1 when thinking is enabled (gptel's default).
+
+*OpenAI* — =reasoning_effort= (=minimal= / =low= / =medium= / =high=).
+Note: =gpt-5.5= specifically rejects =reasoning_effort= alongside tools
+on the =/v1/chat/completions= endpoint (it wants =/v1/responses=,
+which gptel does not currently support). =gpt-5.1= and other earlier
+reasoning models accept it on chat/completions.
+
+#+begin_src emacs-lisp
+(setq hutch-backend
+      (gptel-make-openai "OpenAI"
+        :key (getenv "OPENAI_API_KEY")
+        :models '(gpt-5.1)
+        :request-params '(:reasoning_effort "low")))
+#+end_src
+
+*OpenRouter* — unified =:reasoning= abstraction that maps to each
+underlying provider's native param.  Forms: =(:effort "low/medium/high")=,
+=(:max_tokens N)=, =(:enabled t)=, =(:exclude t)=.  No params needed for
+=deepseek/deepseek-v4-pro= — it reasons at =high= effort by default
+([[https://api-docs.deepseek.com/guides/thinking_mode][DeepSeek docs]]).
+
+#+begin_src emacs-lisp
+;; Example: cap reasoning tokens on a Claude-family OpenRouter model
+(setq hutch-backend
+      (gptel-make-openai "OpenRouter"
+        :host "openrouter.ai"
+        :endpoint "/api/v1/chat/completions"
+        :key (getenv "OPENROUTER_API_KEY")
+        :models '(anthropic/claude-sonnet-4-6)
+        :request-params '(:reasoning (:max_tokens 2048))))
 #+end_src
 
 ** Configuration
