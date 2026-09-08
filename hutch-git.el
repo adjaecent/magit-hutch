@@ -51,16 +51,38 @@ Each symbol corresponds to a diff layer:
               (const :tag "Unmerged changed between current branch and default branch" :branch))
   :group 'hutch)
 
+(defun hutch--diff-text (&rest args)
+  "Run git diff with ARGS.  Return full diff text as a string, or nil if empty."
+  (let ((output (with-temp-buffer
+                  (apply #'magit-git-insert "diff" args)
+                  (buffer-string))))
+    (and output (not (string-empty-p output)) output)))
+
+(defun hutch--diff-hash (&rest args)
+  "Return sha256 of the full diff produced by git diff ARGS, or nil if empty.
+Used as the content identity for both cache lookups and durable
+review promotion, so review-time and commit-time hashes align only
+when the underlying content is byte-identical."
+  (when-let* ((text (apply #'hutch--diff-text "--binary" args)))
+    (secure-hash 'sha256 text)))
+
+(defun hutch--scope-diff-args (scope head base)
+  "Return the git-diff arglist for SCOPE with HEAD and BASE."
+  (if (eq scope :staged) '("--cached") (list base head)))
+
 (defun hutch--make-scope (scope head base manifest)
   "Create a scope plist for SCOPE with HEAD ref, BASE ref, and MANIFEST string.
-SCOPE must be one of `hutch--valid-scopes'."
+SCOPE must be one of `hutch--valid-scopes'.  The :hash slot is
+derived from the full diff text (via `hutch--diff-hash'), not from
+MANIFEST, so it stays a valid content identity even when metadata
+like line counts collide."
   (unless (memq scope hutch--valid-scopes)
     (error "Invalid scope %s, must be one of %s" scope hutch--valid-scopes))
   (list :scope    scope
         :head     head
         :base     base
         :manifest manifest
-        :hash     (secure-hash 'sha256 manifest)
+        :hash     (apply #'hutch--diff-hash (hutch--scope-diff-args scope head base))
         :shash    (abs (sxhash manifest))
         :desc     (if (and head base) (format "%s..%s" base head) "")))
 

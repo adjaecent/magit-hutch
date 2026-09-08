@@ -106,12 +106,27 @@ For non-staged scopes, returns CALLBACK unchanged."
 
 ;;; --- Post-commit promotion ---
 
-(defun hutch--notes-commit-manifest-hash ()
-  "Return sha256 of the numstat manifest for HEAD's just-created commit, or nil.
-Returns nil for the initial commit (no HEAD~1) or any git failure."
-  (when (magit-git-success "rev-parse" "--verify" "--quiet" "HEAD~1")
-    (when-let* ((manifest (hutch--git-diff-numstat "HEAD~1" "HEAD")))
-      (secure-hash 'sha256 manifest))))
+(defun hutch--notes-empty-tree-oid ()
+  "Return the empty-tree OID in this repo's native object format.
+`git mktree' with empty stdin resolves it in whichever hash algorithm
+the repository uses (SHA-1 or SHA-256) and creates the object if missing."
+  (with-temp-buffer
+    (let ((exit (apply #'call-process-region
+                       "" nil magit-git-executable
+                       nil t nil
+                       (append magit-git-global-arguments '("mktree")))))
+      (when (zerop exit)
+        (string-trim (buffer-string))))))
+
+(defun hutch--notes-commit-hash ()
+  "Return the content hash for HEAD's just-created commit, or nil on failure.
+Uses the same `hutch--diff-hash' primitive as scope creation so that
+review-time and commit-time hashes agree on identical content.  For
+initial commits (no HEAD~1) diffs against this repo's empty tree."
+  (let ((base (if (magit-git-success "rev-parse" "--verify" "--quiet" "HEAD~1")
+                  "HEAD~1"
+                (hutch--notes-empty-tree-oid))))
+    (and base (hutch--diff-hash base "HEAD"))))
 
 (defun hutch--notes-consume-last-staged (gitdir)
   "Return and clear the last-staged entry for GITDIR."
@@ -128,7 +143,7 @@ Returns nil for the initial commit (no HEAD~1) or any git failure."
       (when entry
         (let ((review-hash (car entry))
               (result      (cdr entry))
-              (commit-hash (hutch--notes-commit-manifest-hash)))
+              (commit-hash (hutch--notes-commit-hash)))
           (cond
            ((null commit-hash)
             (hutch--log "notes" "could not compute commit manifest; not preserved"))
