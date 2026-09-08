@@ -57,7 +57,17 @@
 ;;; Code:
 
 (require 'hutch-agent)
+(require 'hutch-notes)
 (require 'hutch-ui)
+
+;; Promote successful :staged reviews to refs/hutch/reviews/<hash>
+;; after each commit finishes.  git-commit-post-finish-hook covers
+;; the normal magit-commit flow; magit-post-commit-hook covers
+;; non-interactive variants (extend, fixup, augment, instant-*).
+(with-eval-after-load 'git-commit
+  (add-hook 'git-commit-post-finish-hook #'hutch--notes-post-commit-promote))
+(with-eval-after-load 'magit-commit
+  (add-hook 'magit-post-commit-hook #'hutch--notes-post-commit-promote))
 
 ;;;###autoload
 (defun hutch-add-review-binding (&optional key)

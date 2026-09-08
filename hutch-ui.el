@@ -344,7 +344,8 @@ runs next time."
    ((y-or-n-p "Discard this review (findings will be frozen for reference)? ")
     (setq hutch--discarded t)
     (dolist (scope hutch--scopes)
-      (hutch--cache-evict (plist-get scope :hash)))
+      (hutch--cache-evict (plist-get scope :scope) (plist-get scope :hash)))
+    (hutch--notes-forget-staged)
     (hutch--render-buffer (current-buffer))
     (message "Review discarded."))))
 

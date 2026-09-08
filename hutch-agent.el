@@ -33,6 +33,7 @@
 (require 'hutch-prompts)
 (require 'hutch-tools)
 (require 'hutch-cache)
+(require 'hutch-notes)
 (require 'hutch-findings)
 (require 'hutch-gates)
 (require 'hutch-instrument)
@@ -283,14 +284,20 @@ Returns a list of cancel-callbacks to cancel reviews for SCOPES."
                   (desc             (plist-get scope :desc))
                   (scope-key        (plist-get scope :scope))
                   (cancel-scope-box (hutch--make-result-box)))
-              (if-let* ((cached (hutch--cache-lookup hash)))
+              (if-let* ((cached (hutch--cache-lookup scope-key hash)))
                   (progn
                     (hutch--log "review" "cache hit for %s %s" scope-key desc)
+                    (hutch--notes-remember-staged scope cached)
                     (funcall on-done cached)
                     (lambda () nil))
                 (hutch--log "review" "dispatching %s %s" scope-key desc)
                 (hutch--review-scope scope
-                                     (hutch--write-through-cache-callback hash on-done)
+                                     (hutch--notes-remember-callback
+                                      scope
+                                      (hutch--write-through-cache-callback
+                                       scope-key
+                                       hash
+                                       on-done))
                                      on-progress
                                      cancel-scope-box)
                 (lambda () (hutch--agent-cancel cancel-scope-box)))))

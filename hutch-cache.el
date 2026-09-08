@@ -20,9 +20,10 @@
 
 ;;; Commentary:
 
-;; Persistent review cache keyed by manifest SHA256.  Stores results
-;; under the repository's gitdir so they survive Emacs restarts but
-;; never leak into commits.
+;; One cache file per scope keyword, keyed by manifest SHA256.  Each
+;; file holds a single (HASH . RESULT) cons -- the most recent review
+;; for that scope.  Per-scope files sidestep any read-modify-write
+;; races between concurrent scope completions.
 
 ;;; Code:
 
@@ -36,9 +37,9 @@
 
 (defcustom hutch-cache-enabled t
   "Whether to consult and update the on-disk review cache.
-When non-nil (the default), successful review results are cached in
-`.git/hutch-review-cache' keyed by the diff manifest hash, and reused
-on subsequent reviews of unchanged diffs.
+When non-nil (the default), the most recent successful review per
+scope is cached in `.git/hutch/cache-<scope>.eld' keyed by the diff
+manifest hash, and reused when the same diff is reviewed again.
 
 Set to nil to force fresh reviews on every invocation.  Useful for
 evaluation runs, prompt iteration, or any workflow where cached
@@ -46,58 +47,49 @@ results would mask current model behavior."
   :type 'boolean
   :group 'hutch)
 
-(defun hutch--cache-file ()
-  "Return the path to the review cache file in .git/."
-  (expand-file-name "hutch/cache.eld" (magit-gitdir)))
+(defun hutch--cache-file (kw)
+  "Return the cache file path for scope KW."
+  (expand-file-name (format "hutch/cache-%s.eld" (substring (symbol-name kw) 1))
+                    (magit-gitdir)))
 
-(defun hutch--cache-lookup (hash)
-  "Look up HASH in the cache.  Return the result plist or nil on miss.
-Returns nil when `hutch-cache-enabled' is nil."
+(defun hutch--cache-read (kw)
+  "Return the (HASH . RESULT) cons for scope KW, or nil if absent/unreadable."
+  (let ((f (hutch--cache-file kw)))
+    (when (file-exists-p f)
+      (with-temp-buffer
+        (insert-file-contents f)
+        (ignore-errors (read (current-buffer)))))))
+
+(defun hutch--cache-lookup (kw hash)
+  "Return the cached result for KW + HASH, or nil on miss / disabled cache."
   (when hutch-cache-enabled
-    (let ((cache-file (hutch--cache-file)))
-      (when (file-exists-p cache-file)
-        (let ((alist (with-temp-buffer
-                       (insert-file-contents cache-file)
-                       (ignore-errors (read (current-buffer))))))
-          (cdr (assoc hash alist)))))))
+    (let ((entry (hutch--cache-read kw)))
+      (when (and (consp entry) (equal (car entry) hash))
+        (cdr entry)))))
 
-(defun hutch--cache-store (hash result &optional cache-file)
-  "Store RESULT under HASH in the cache, replacing any existing entry."
-  (let* ((new-entry (cons hash result))
-         (cache-file (or cache-file (hutch--cache-file)))
-         (alist (if (file-exists-p cache-file)
-                    (with-temp-buffer
-                      (insert-file-contents cache-file)
-                      (ignore-errors (read (current-buffer))))
-                  nil))
-         (new-list (thread-last alist
-                                (assoc-delete-all hash)
-                                (cons new-entry))))
-    (make-directory (file-name-directory cache-file) t)
-    (with-temp-file cache-file (prin1 new-list (current-buffer)))))
+(defun hutch--cache-store (kw hash result)
+  "Store RESULT under KW + HASH, overwriting any prior entry for KW."
+  (let ((f (hutch--cache-file kw)))
+    (make-directory (file-name-directory f) t)
+    (with-temp-file f (prin1 (cons hash result) (current-buffer)))))
 
-(defun hutch--cache-evict (hash)
-  "Remove the cache entry for HASH, if any."
-  (let ((cache-file (hutch--cache-file)))
-    (when (file-exists-p cache-file)
-      (let* ((alist (with-temp-buffer
-                      (insert-file-contents cache-file)
-                      (ignore-errors (read (current-buffer)))))
-             (pruned (assoc-delete-all hash alist)))
-        (with-temp-file cache-file (prin1 pruned (current-buffer)))))))
+(defun hutch--cache-evict (kw hash)
+  "Remove the cache entry for KW + HASH, if it is the currently stored one."
+  (let ((entry (hutch--cache-read kw)))
+    (when (and (consp entry) (equal (car entry) hash))
+      (delete-file (hutch--cache-file kw)))))
 
-(defun hutch--write-through-cache-callback (hash callback)
-  "Return a callback that caches a successful result against HASH.
+(defun hutch--write-through-cache-callback (kw hash callback)
+  "Return a callback that caches a successful result against KW + HASH.
 The wrapped CALLBACK is invoked after the write-through.
 Returns CALLBACK unchanged when `hutch-cache-enabled' is nil."
   (if (not hutch-cache-enabled)
       callback
-    (let ((cache-file (hutch--cache-file)))
-      (lambda (result)
-        (hutch--log "cache" "status: %s hash: %s" (plist-get result :status) hash)
-        (when (eq (plist-get result :status) :ok)
-          (hutch--cache-store hash result cache-file))
-        (funcall callback result)))))
+    (lambda (result)
+      (hutch--log "cache" "status: %s hash: %s" (plist-get result :status) hash)
+      (when (eq (plist-get result :status) :ok)
+        (hutch--cache-store kw hash result))
+      (funcall callback result))))
 
 (provide 'hutch-cache)
 
