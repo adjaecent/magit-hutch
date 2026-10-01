@@ -85,9 +85,11 @@ TOKENS is an optional (input . output) cons cell."
   (hutch--make-result :error scope nil (hutch--sanitize-emsg type msg)))
 
 (defun hutch--accumulate-tokens (token-box info round)
-  "Add token counts from INFO into TOKEN-BOX for ROUND."
-  (let ((in  (plist-get info :input-tokens))
-        (out (plist-get info :output-tokens)))
+  "Add token counts from INFO into TOKEN-BOX for ROUND.
+Reads gptel's per-turn shape at (info :tokens) → (:input N :output N :cached N)."
+  (let* ((tokens (plist-get info :tokens))
+         (in    (plist-get tokens :input))
+         (out   (plist-get tokens :output)))
     (when (or in out)
       (hutch--log "tokens" "round %d +R%d/+W%d" round (or in 0) (or out 0))
       (let ((cur (hutch--result-box-get token-box)))

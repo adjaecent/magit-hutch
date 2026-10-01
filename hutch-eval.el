@@ -97,20 +97,22 @@ identity, scopes collected, per-scope status, and the full
              (length scopes))
     (hutch--trace-begin)
     (unwind-protect
-        (let ((results (hutch-review-sync repo-dir scopes 900)))
-          (dolist (r results)
-            (message "[eval] scope=%s status=%s findings=%d emsg=%S"
-                     (plist-get r :scope)
-                     (plist-get r :status)
-                     (length (plist-get r :findings))
-                     (plist-get r :emsg)))
-          (with-current-buffer (get-buffer-create "*hutch-log*")
-            (message "[eval-log]\n%s" (buffer-string)))
-          ;; Also dump *gptel-log* if it exists — has the actual API
-          ;; request/response bodies, essential for diagnosing HTTP errors.
-          (when-let* ((gbuf (get-buffer "*gptel-log*")))
-            (with-current-buffer gbuf
-              (message "[gptel-log]\n%s" (buffer-string)))))
+        (condition-case err
+            (let ((results (hutch-review-sync repo-dir scopes 900)))
+              (dolist (r results)
+                (message "[eval] scope=%s status=%s findings=%d emsg=%S"
+                         (plist-get r :scope)
+                         (plist-get r :status)
+                         (length (plist-get r :findings))
+                         (plist-get r :emsg))))
+          (error (message "[eval] hutch-review-sync failed: %S" err)))
+      ;; Always dump logs -- even on timeout / error -- so failures are
+      ;; diagnosable from the batch log.
+      (with-current-buffer (get-buffer-create "*hutch-log*")
+        (message "[eval-log]\n%s" (buffer-string)))
+      (when-let* ((gbuf (get-buffer "*gptel-log*")))
+        (with-current-buffer gbuf
+          (message "[gptel-log]\n%s" (buffer-string))))
       (hutch--trace-end))))
 
 (provide 'hutch-eval)

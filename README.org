@@ -23,11 +23,9 @@ that handles deps for you (=straight.el=, =elpaca=) — they'll pull in
 only, since the output from cheaper models can be unreliable.
 
 *Tree-sitter grammars (optional but recommended):* the
-=surrounding_context= tool uses tree-sitter to resolve the enclosing
-definition for a hunk.  It returns a "no grammar" sentinel for any
-language whose grammar isn't installed, so the tool degrades gracefully
-— but reviews are noticeably better with grammars present.  Install
-once per language via =M-x treesit-install-language-grammar= (requires
+=surrounding_context= tool uses Tree-sitter to resolve the enclosing
+definition for a hunk.  It returns a "no grammar"  and degrades gracefully if grammar isn't installed.
+Install once per language via =M-x treesit-install-language-grammar= (requires
 =git= and a C compiler).  Or install everything in one shot from a
 cloned checkout: =bin/install-grammars=.  Hutch currently has explicit
 support for: python, javascript, typescript, tsx, go, ruby, rust, java,
@@ -59,7 +57,7 @@ c, c++, clojure, elixir (elisp is built-in and needs no grammar).
 
 =package-vc-install= resolves the =Package-Requires= deps (=gptel=,
 =svg-lib=) via =package-archives=.  Two requirements: MELPA must be
-enabled, and the package index must be fresh — MELPA only hosts the
+enabled, and the package index must be fresh. MELPA only hosts the
 current snapshot, so stale index entries 404 when fetched.
 
 #+begin_src emacs-lisp
@@ -128,11 +126,11 @@ Any =gptel-make-*= backend works for =hutch-backend=. Following are the recommen
 
 *** Reasoning / extended thinking
 
-Hutch's review loop is multi-step and benefits from reasoning models.
-Each provider's reasoning knobs are different — pass them via
-gptel's =:request-params=, which gets merged into every request body.
+Hutch's review loop is multi-step and reasoning models are preferable.
+Different providers have different reasoning knobs. Refer to the gptel docs carefully.
+In general, use gptel's =:request-params=, which gets merged into every request body.
 
-*Anthropic* — extended thinking with a token budget. =gptel= correctly
+*Anthropic*: =gptel= correctly
 preserves thinking signatures across tool-use turns, which Claude
 requires (see [[https://github.com/ahyatt/llm/discussions/273][llm
 discussion #273]] for the surrounding context).
@@ -163,8 +161,7 @@ reasoning models accept it on chat/completions.
         :request-params '(:reasoning_effort "low")))
 #+end_src
 
-*OpenRouter* — unified =:reasoning= abstraction that maps to each
-underlying provider's native param.  Forms: =(:effort "low/medium/high")=,
+*OpenRouter*: =:reasoning= is unified here. that maps to each. You can do: =(:effort "low/medium/high")=,
 =(:max_tokens N)=, =(:enabled t)=, =(:exclude t)=.  No params needed for
 =deepseek/deepseek-v4-pro= — it reasons at =high= effort by default
 ([[https://api-docs.deepseek.com/guides/thinking_mode][DeepSeek docs]]).

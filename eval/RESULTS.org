@@ -1,0 +1,111 @@
+#+title: magit-hutch: eval results (reference)
+
+Snapshot of all per-model eval runs on disk, both fresh (2026-09-30) and
+baselines preserved from the earlier June 2026 runs.  Numbers computed
+directly from the =results-*.jsonl= files; re-generate this file with
+=bin/results-summary= (TODO) or by rerunning the python at the bottom of
+this file.
+
+** Summary (all 40 PRs each)
+
+|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
+| run                       |  N | find | bugs | valid | noise | hit/g   |  prec  | recall  |  F1    | use% | SNR  | out tok   | in tok    | o/use  | wall/pr |
+|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
+| glm-5.2 (OR, medium reas) | 40 |  132 |   57 |    39 |    36 |  50/132 |  37.8% |  42.8%  |  38.4% | 69.8 |  2.7 |   407,102 | 1,706,214 |  4,241 |  261 s  |
+| gpt-5.5 (OpenAI, no reas) | 40 |  105 |   45 |    41 |    19 |  40/132 |  37.2% |  32.8%  |  31.9% | 77.6 |  4.5 |   381,314 | 2,107,502 |  4,434 |  226 s  |
+| gpt-5.5 baseline (Jun)    | 40 |  112 |   50 |    58 |     4 |  40/108 |  35.3% |  40.0%  |  34.6% | 93.9 | 27.0 |   421,789 |         0 |  3,905 |  310 s  |
+| opus-4.8 baseline (Jun)   | 40 |  160 |   64 |    92 |     4 |  51/108 |  30.1% |  48.2%  |  35.8% | 89.2 | 39.0 |   259,851 |         0 |  1,666 |  135 s  |
+|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
+
+Legend:
+- =find=   total findings submitted
+- =bugs=   judge-classified BUG_HIT (hit a golden)
+- =valid=  judge-classified VALID_SUGGESTION (real but not in golden set)
+- =noise=  judge-classified NOISE (wrong/irrelevant/hallucinated)
+- =hit/g=  distinct goldens hit / total goldens across all PRs
+- =use%=   per-PR usefulness rate = (bugs + valid) / findings
+- =SNR=    (bugs + valid) / noise
+- =o/use=  output tokens per useful (bug + valid) finding
+- =wall/pr= mean wall-clock seconds per PR
+
+** How the fresh runs were produced
+
+Both fresh runs went through the same pipeline:
+
+1. =bb prep= — materialize 40 PR worktrees under =/tmp/hutch-eval-repos/=.
+2. =bb run --parallel N --out results-<model>.jsonl= — hutch batched via
+   emacs =--batch=, trace per PR via =hutch-trace-dir=, judge via
+   =gpt-5.2=, append JSONL.
+3. Per-model artifacts moved aside to prevent overwrite:
+   - traces/  → traces-glm-5.2/  or  traces-openai_gpt-5.5/
+   - logs/    → logs-glm-5.2/    or  logs-openai_gpt-5.5/
+
+Backends:
+
+#+begin_src elisp
+;; glm-5.2 — streamed, unified :reasoning (:effort "medium")
+(gptel-make-openai "OpenRouter"
+  :host "openrouter.ai"
+  :endpoint "/api/v1/chat/completions"
+  :key (getenv "OPENROUTER_API_KEY")
+  :models '(z-ai/glm-5.2)
+  :request-params '(:reasoning (:effort "medium")
+                    :stream_options (:include_usage t)))
+
+;; gpt-5.5 — non-streamed; the /v1/chat/completions endpoint rejects
+;; both reasoning_effort and stream_options.include_usage alongside
+;; tool calls, so streaming is off (non-streamed responses always
+;; include usage in the final body).  No reasoning is sent.
+(gptel-make-openai "OpenAI"
+  :key (getenv "OPENAI_API_KEY")
+  :models '(gpt-5.5)
+  :stream nil)
+#+end_src
+
+** Caveats worth repeating
+
+- *Input tokens are only present in the fresh runs.*  The June baselines
+  were on an older gptel that didn't populate input tokens in the
+  callback info plist.  Fixed in [[../hutch.el][hutch.el]] by bumping
+  the =gptel= floor to 0.9.9.4 and reading =(plist-get info :tokens)=.
+  Any cost comparison vs. the baseline is output-only.
+
+- *Reasoning tokens are folded into output_tokens for reasoning models.*
+  OpenAI counts =completion_tokens= as =visible_output + reasoning=.
+  GLM via OpenRouter similarly surfaces reasoning in the completion
+  side.  The =o/use= column therefore conflates "produce the finding"
+  with "think about it."  gpt-5.5 here runs without reasoning (API
+  restriction), so its number is reasoning-free; GLM's is not.
+
+- *Noise is the unreliable metric.*  The same =gpt-5.2= judge classifies
+  more findings as NOISE in the fresh run (36 for GLM, 19 for gpt-5.5)
+  than in the June baseline (4 and 4).  Could be real model drift, could
+  be judge variance.  Treat SNR and use% as soft signals.
+
+- *The golden set grew between runs.*  June: 108 total goldens across 40
+  PRs.  Current: 132 goldens.  Martian updated the =golden_comments/*=
+  dataset; the fresh runs are judged against the newer, bigger set.
+  Interestingly both fresh and baseline gpt-5.5 hit exactly *40* distinct
+  goldens — the absolute count is unchanged, only the denominator
+  (recall) moved.
+
+** Per-model artifacts on disk
+
+| artifact                                 | source                              |
+|------------------------------------------+-------------------------------------|
+| =results-glm-5.2.jsonl=                  | fresh GLM run                       |
+| =results-openai_gpt-5.5.jsonl=           | fresh gpt-5.5 run                   |
+| =results-openai_gpt-5.5-baseline.jsonl=  | preserved June baseline             |
+| =results-claude_opus-4.8-baseline.jsonl= | preserved June baseline             |
+| =traces-glm-5.2/=                        | per-PR perfetto traces, fresh GLM   |
+| =traces-openai_gpt-5.5/=                 | per-PR perfetto traces, fresh gpt   |
+| =logs-glm-5.2/=                          | per-PR batch stderr (gptel bodies)  |
+| =logs-openai_gpt-5.5/=                   | per-PR batch stderr                 |
+
+** Not benchmarked here
+
+- *opus-4.8 fresh.*  Not rerun — Anthropic credits exhausted at the time
+  of the sweep.  June baseline retained; its =input_tokens= read as 0.
+- *Patch applicability.*  This dataset tracks whether findings hit the
+  golden set.  It does not measure whether the proposed SEARCH/REPLACE
+  patches actually apply cleanly to the reviewed tree.
