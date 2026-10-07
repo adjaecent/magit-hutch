@@ -107,7 +107,10 @@ Reuses existing worktrees; not safe for concurrent same-clone calls."
   (let [clone-dir (ensure-shared-clone owner repo)
         wt-dir    (str cfg/repo-cache "/" (pr-id info))
         branch    (format "eval-pr-%d" pr)]
-    (if (fs/exists? wt-dir)
+    (if (and (fs/exists? wt-dir) (fs/exists? (str wt-dir "/.git")))
       (do (log "  reuse" wt-dir) wt-dir)
-      (do (materialize-worktree clone-dir wt-dir pr branch)
+      (do (when (fs/exists? wt-dir)
+            (log "  wiping stale worktree" wt-dir)
+            (fs/delete-tree wt-dir))
+          (materialize-worktree clone-dir wt-dir pr branch)
           wt-dir))))

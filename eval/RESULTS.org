@@ -6,16 +6,34 @@ directly from the =results-*.jsonl= files; re-generate this file with
 =bin/results-summary= (TODO) or by rerunning the python at the bottom of
 this file.
 
-** Summary (all 40 PRs each)
+** Summary (all 40 PRs each; lgtm findings excluded — see note below)
 
-|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
-| run                       |  N | find | bugs | valid | noise | hit/g   |  prec  | recall  |  F1    | use% | SNR  | out tok   | in tok    | o/use  | wall/pr |
-|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
-| glm-5.2 (OR, medium reas) | 40 |  132 |   57 |    39 |    36 |  50/132 |  37.8% |  42.8%  |  38.4% | 69.8 |  2.7 |   407,102 | 1,706,214 |  4,241 |  261 s  |
-| gpt-5.5 (OpenAI, no reas) | 40 |  105 |   45 |    41 |    19 |  40/132 |  37.2% |  32.8%  |  31.9% | 77.6 |  4.5 |   381,314 | 2,107,502 |  4,434 |  226 s  |
-| gpt-5.5 baseline (Jun)    | 40 |  112 |   50 |    58 |     4 |  40/108 |  35.3% |  40.0%  |  34.6% | 93.9 | 27.0 |   421,789 |         0 |  3,905 |  310 s  |
-| opus-4.8 baseline (Jun)   | 40 |  160 |   64 |    92 |     4 |  51/108 |  30.1% |  48.2%  |  35.8% | 89.2 | 39.0 |   259,851 |         0 |  1,666 |  135 s  |
-|---------------------------+----+------+------+-------+-------+---------+--------+---------+--------+------+------+-----------+-----------+--------+--------|
+|---------------------------+----+------+------+-------+-------+------+---------+-------+--------+------+------+-----------+-----------+--------+--------|
+| run                       |  N | find | bugs | valid | noise | lgtm | hit/g   | hit/g | use%   | SNR  |  r/pr | out tok   | in tok    | o/use  | wall/pr |
+|                           |    |      |      |       |       |      | current | June  |        |      |       |           |           |        |         |
+|---------------------------+----+------+------+-------+-------+------+---------+-------+--------+------+------+-----------+-----------+--------+--------|
+| opus-4.8 (Anthropic, med) | 40 |   95 |   55 |    35 |     5 |  116 |  50/132 | 46/107 |  94.7 | 18.0 |   9.9 |   268,663 | 7,442,206 |  2,985 |  189 s  |
+| glm-5.2 (OR, medium reas) | 40 |  105 |   57 |    39 |     9 |   27 |  50/132 | 43/107 |  91.4 | 10.7 |  14.1 |   407,102 | 1,706,214 |  4,241 |  261 s  |
+| gpt-5.5 (OpenAI, no reas) | 40 |   86 |   45 |    41 |     0 |   19 |  40/132 | 34/107 | 100.0 |   ∞  |  36.5 |   381,314 | 2,107,502 |  4,434 |  226 s  |
+| opus-4.8 baseline (Jun)   | 40 |  160 |   64 |    92 |     4 |    0 |      — | 51/108 |  97.5 | 39.0 |  14.4 |   259,851 |         0 |  1,666 |  135 s  |
+| gpt-5.5 baseline (Jun)    | 40 |  112 |   50 |    58 |     4 |    0 |      — | 40/108 |  96.4 | 27.0 |  35.1 |   421,789 |         0 |  3,905 |  310 s  |
+|---------------------------+----+------+------+-------+-------+------+---------+-------+--------+------+------+-----------+-----------+--------+--------|
+
+Notes on this table:
+
+- *lgtm findings are excluded from the counts.*  hutch added the =lgtm=
+  type after the June baseline runs; it's a review-coverage marker
+  ("I looked at this file and nothing was wrong"), not a finding.  Each
+  one has empty content, so the judge classifies 100% of them as NOISE
+  by construction.  Including them in the fresh runs makes the noise
+  count look 10-30× worse than the baselines — artifact, not signal.
+  The =lgtm= column shows how many were emitted; the baselines show 0
+  because the type didn't exist then.
+- *Two hit/g columns:*  =current= judges against today's goldens set
+  (132 total); =June= drops the 25 goldens Martian added since the
+  baseline runs, giving a 107-golden comparator that aligns with the
+  June baselines (108 — close enough; 1 PR shrank by one golden).
+  Use the =June= column when comparing fresh vs baseline.
 
 Legend:
 - =find=   total findings submitted
@@ -60,6 +78,15 @@ Backends:
   :key (getenv "OPENAI_API_KEY")
   :models '(gpt-5.5)
   :stream nil)
+
+;; opus-4.8 — Anthropic direct; current API uses the "adaptive" thinking
+;; shape (older "enabled" + :budget_tokens is rejected for this model).
+;; `:output_config (:effort "medium")` is the dial for how hard it thinks.
+(gptel-make-anthropic "Claude"
+  :key (getenv "ANTHROPIC_API_KEY")
+  :models '(claude-opus-4-8)
+  :request-params '(:thinking (:type "adaptive")
+                    :output_config (:effort "medium")))
 #+end_src
 
 ** Caveats worth repeating
@@ -77,10 +104,18 @@ Backends:
   with "think about it."  gpt-5.5 here runs without reasoning (API
   restriction), so its number is reasoning-free; GLM's is not.
 
-- *Noise is the unreliable metric.*  The same =gpt-5.2= judge classifies
-  more findings as NOISE in the fresh run (36 for GLM, 19 for gpt-5.5)
-  than in the June baseline (4 and 4).  Could be real model drift, could
-  be judge variance.  Treat SNR and use% as soft signals.
+- *Noise, once lgtm is filtered, is a non-story.*  Earlier runs of the
+  summary showed noise jumping 4 → 121 for opus, 4 → 19 for gpt-5.5.
+  That was entirely explained by the =lgtm= finding type (added to hutch
+  after the baselines).  Every lgtm has empty content and is auto-noise.
+  With lgtm filtered, fresh noise counts are 0-9, in line with the
+  baselines' 4-each.  Judge model and judge behavior are unchanged.
+- *Model behavior did shift slightly in a different direction.*  Opus
+  dropped from 160 substantive findings (June) to 95 (today), and
+  gpt-5.5 from 112 to 86.  Model learned to be more selective, lgtm'ing
+  files instead of commenting on them.  Distinct bug hits stayed stable
+  (opus 50 ≈ 51, gpt-5.5 40 = 40) — fewer things flagged, same real
+  issues caught.
 
 - *The golden set grew between runs.*  June: 108 total goldens across 40
   PRs.  Current: 132 goldens.  Martian updated the =golden_comments/*=
@@ -97,15 +132,16 @@ Backends:
 | =results-openai_gpt-5.5.jsonl=           | fresh gpt-5.5 run                   |
 | =results-openai_gpt-5.5-baseline.jsonl=  | preserved June baseline             |
 | =results-claude_opus-4.8-baseline.jsonl= | preserved June baseline             |
+| =results-claude_opus-4.8.jsonl=          | fresh opus-4.8 run                  |
+| =traces-claude_opus-4.8/=                | per-PR perfetto traces, fresh opus  |
 | =traces-glm-5.2/=                        | per-PR perfetto traces, fresh GLM   |
 | =traces-openai_gpt-5.5/=                 | per-PR perfetto traces, fresh gpt   |
+| =logs-claude_opus-4.8/=                  | per-PR batch stderr (gptel bodies)  |
 | =logs-glm-5.2/=                          | per-PR batch stderr (gptel bodies)  |
 | =logs-openai_gpt-5.5/=                   | per-PR batch stderr                 |
 
 ** Not benchmarked here
 
-- *opus-4.8 fresh.*  Not rerun — Anthropic credits exhausted at the time
-  of the sweep.  June baseline retained; its =input_tokens= read as 0.
 - *Patch applicability.*  This dataset tracks whether findings hit the
   golden set.  It does not measure whether the proposed SEARCH/REPLACE
   patches actually apply cleanly to the reviewed tree.

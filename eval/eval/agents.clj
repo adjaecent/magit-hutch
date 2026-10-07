@@ -18,23 +18,31 @@ that trace via `eval.trace`.  The judge stays HTTP JSON."
   (str cfg/logs-dir "/" (str/replace pr-url #"[^A-Za-z0-9._-]+" "_") ".log"))
 
 (defn trace-dir-for [pr-url]
-  (str cfg/traces-dir "/" (str/replace pr-url #"[^A-Za-z0-9._-]+" "_")))
+  ;; Absolute path -- the batch process's `default-directory' is the
+  ;; worktree, not the eval CWD, so a relative path would put the
+  ;; trace inside the worktree instead of eval/traces/.
+  (str (System/getProperty "user.dir") "/" cfg/traces-dir "/"
+       (str/replace pr-url #"[^A-Za-z0-9._-]+" "_")))
 
 (defn latest-trace-file
   "Return the newest `hutch-trace-*.json' in DIR, or nil."
   [dir]
   (when (fs/exists? dir)
-    (->> (fs/list-dir dir)
-         (filter #(re-find #"hutch-trace-.*\.json$" (str %)))
-         (sort-by fs/last-modified-time)
-         last
-         (some-> str))))
+    (some->> (fs/list-dir dir)
+             (filter #(re-find #"hutch-trace-.*\.json$" (str %)))
+             (sort-by fs/last-modified-time)
+             last
+             str)))
 
 (defn- hutch-elisp-expr
   "Single elisp expression sent to emacs --batch.  Sets trace-dir then
 runs the review; the Perfetto trace at TRACE-DIR is the artifact."
   [repo-dir trace-dir]
   (format "(progn (require 'hutch-eval)
+                  ;; Force magit to load fully so any deferred user init
+                  ;; :after magit :config fires now.  Otherwise it can fire
+                  ;; mid-review and clobber `hutch-trace-dir'.
+                  (require 'magit)
                   (setq hutch-trace-dir %s)
                   (make-directory hutch-trace-dir t)
                   (hutch-eval-batch-review %s %d))"

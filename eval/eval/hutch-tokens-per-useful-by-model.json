@@ -1,0 +1,741 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "background": "#f6f2ec",
+  "padding": {
+    "top": 16,
+    "right": 16,
+    "bottom": 16,
+    "left": 16
+  },
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal",
+      "domainColor": "#1a1512",
+      "domainOpacity": 0.55,
+      "tickColor": "#d9d1c4",
+      "grid": true,
+      "gridColor": "#d9d1c4",
+      "gridDash": [
+        2,
+        3
+      ]
+    },
+    "header": {
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFontWeight": "normal",
+      "labelFont": "monospace",
+      "labelFontSize": 12,
+      "labelColor": "#1a1512",
+      "labelFontWeight": "normal",
+      "labelPadding": 8
+    },
+    "legend": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "symbolType": "square"
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "model": "opus-4.8",
+        "pr": "01",
+        "order": 1,
+        "tokens_per_useful": 565
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "02",
+        "order": 2,
+        "tokens_per_useful": 712
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "03",
+        "order": 3,
+        "tokens_per_useful": 804
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "04",
+        "order": 4,
+        "tokens_per_useful": 878
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "05",
+        "order": 5,
+        "tokens_per_useful": 942
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "06",
+        "order": 6,
+        "tokens_per_useful": 1008
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "07",
+        "order": 7,
+        "tokens_per_useful": 1144
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "08",
+        "order": 8,
+        "tokens_per_useful": 1772
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "09",
+        "order": 9,
+        "tokens_per_useful": 1994
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "10",
+        "order": 10,
+        "tokens_per_useful": 1994
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "11",
+        "order": 11,
+        "tokens_per_useful": 2035
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "12",
+        "order": 12,
+        "tokens_per_useful": 2046
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "13",
+        "order": 13,
+        "tokens_per_useful": 2217
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "14",
+        "order": 14,
+        "tokens_per_useful": 2296
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "15",
+        "order": 15,
+        "tokens_per_useful": 2411
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "16",
+        "order": 16,
+        "tokens_per_useful": 2624
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "17",
+        "order": 17,
+        "tokens_per_useful": 2776
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "18",
+        "order": 18,
+        "tokens_per_useful": 2825
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "19",
+        "order": 19,
+        "tokens_per_useful": 2840
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "20",
+        "order": 20,
+        "tokens_per_useful": 2946
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "21",
+        "order": 21,
+        "tokens_per_useful": 3002
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "22",
+        "order": 22,
+        "tokens_per_useful": 3317
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "23",
+        "order": 23,
+        "tokens_per_useful": 3429
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "24",
+        "order": 24,
+        "tokens_per_useful": 3774
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "25",
+        "order": 25,
+        "tokens_per_useful": 4106
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "26",
+        "order": 26,
+        "tokens_per_useful": 4842
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "27",
+        "order": 27,
+        "tokens_per_useful": 5654
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "28",
+        "order": 28,
+        "tokens_per_useful": 6308
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "29",
+        "order": 29,
+        "tokens_per_useful": 7104
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "30",
+        "order": 30,
+        "tokens_per_useful": 8144
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "31",
+        "order": 31,
+        "tokens_per_useful": 13113
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "01",
+        "order": 1,
+        "tokens_per_useful": 984
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "02",
+        "order": 2,
+        "tokens_per_useful": 1024
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "03",
+        "order": 3,
+        "tokens_per_useful": 1049
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "04",
+        "order": 4,
+        "tokens_per_useful": 1064
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "05",
+        "order": 5,
+        "tokens_per_useful": 1100
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "06",
+        "order": 6,
+        "tokens_per_useful": 1713
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "07",
+        "order": 7,
+        "tokens_per_useful": 1746
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "08",
+        "order": 8,
+        "tokens_per_useful": 1764
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "09",
+        "order": 9,
+        "tokens_per_useful": 1858
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "10",
+        "order": 10,
+        "tokens_per_useful": 1859
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "11",
+        "order": 11,
+        "tokens_per_useful": 1879
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "12",
+        "order": 12,
+        "tokens_per_useful": 1932
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "13",
+        "order": 13,
+        "tokens_per_useful": 2631
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "14",
+        "order": 14,
+        "tokens_per_useful": 2771
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "15",
+        "order": 15,
+        "tokens_per_useful": 2862
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "16",
+        "order": 16,
+        "tokens_per_useful": 3351
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "17",
+        "order": 17,
+        "tokens_per_useful": 3366
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "18",
+        "order": 18,
+        "tokens_per_useful": 3858
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "19",
+        "order": 19,
+        "tokens_per_useful": 3886
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "20",
+        "order": 20,
+        "tokens_per_useful": 3897
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "21",
+        "order": 21,
+        "tokens_per_useful": 4005
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "22",
+        "order": 22,
+        "tokens_per_useful": 4197
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "23",
+        "order": 23,
+        "tokens_per_useful": 5068
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "24",
+        "order": 24,
+        "tokens_per_useful": 5461
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "25",
+        "order": 25,
+        "tokens_per_useful": 6127
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "26",
+        "order": 26,
+        "tokens_per_useful": 6770
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "27",
+        "order": 27,
+        "tokens_per_useful": 7017
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "28",
+        "order": 28,
+        "tokens_per_useful": 7272
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "29",
+        "order": 29,
+        "tokens_per_useful": 9241
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "30",
+        "order": 30,
+        "tokens_per_useful": 9334
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "31",
+        "order": 31,
+        "tokens_per_useful": 10398
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "32",
+        "order": 32,
+        "tokens_per_useful": 11804
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "33",
+        "order": 33,
+        "tokens_per_useful": 11965
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "34",
+        "order": 34,
+        "tokens_per_useful": 15050
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "01",
+        "order": 1,
+        "tokens_per_useful": 990
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "02",
+        "order": 2,
+        "tokens_per_useful": 1260
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "03",
+        "order": 3,
+        "tokens_per_useful": 1531
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "04",
+        "order": 4,
+        "tokens_per_useful": 1553
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "05",
+        "order": 5,
+        "tokens_per_useful": 1646
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "06",
+        "order": 6,
+        "tokens_per_useful": 1651
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "07",
+        "order": 7,
+        "tokens_per_useful": 1726
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "08",
+        "order": 8,
+        "tokens_per_useful": 1729
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "09",
+        "order": 9,
+        "tokens_per_useful": 2277
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "10",
+        "order": 10,
+        "tokens_per_useful": 2362
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "11",
+        "order": 11,
+        "tokens_per_useful": 2427
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "12",
+        "order": 12,
+        "tokens_per_useful": 2574
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "13",
+        "order": 13,
+        "tokens_per_useful": 2659
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "14",
+        "order": 14,
+        "tokens_per_useful": 2782
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "15",
+        "order": 15,
+        "tokens_per_useful": 2788
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "16",
+        "order": 16,
+        "tokens_per_useful": 2804
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "17",
+        "order": 17,
+        "tokens_per_useful": 2805
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "18",
+        "order": 18,
+        "tokens_per_useful": 3244
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "19",
+        "order": 19,
+        "tokens_per_useful": 3289
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "20",
+        "order": 20,
+        "tokens_per_useful": 3425
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "21",
+        "order": 21,
+        "tokens_per_useful": 3833
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "22",
+        "order": 22,
+        "tokens_per_useful": 4186
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "23",
+        "order": 23,
+        "tokens_per_useful": 4328
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "24",
+        "order": 24,
+        "tokens_per_useful": 4920
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "25",
+        "order": 25,
+        "tokens_per_useful": 5427
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "26",
+        "order": 26,
+        "tokens_per_useful": 6722
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "27",
+        "order": 27,
+        "tokens_per_useful": 8135
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "28",
+        "order": 28,
+        "tokens_per_useful": 8188
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "29",
+        "order": 29,
+        "tokens_per_useful": 10007
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "30",
+        "order": 30,
+        "tokens_per_useful": 10351
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "31",
+        "order": 31,
+        "tokens_per_useful": 11240
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "32",
+        "order": 32,
+        "tokens_per_useful": 13147
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "33",
+        "order": 33,
+        "tokens_per_useful": 16529
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "34",
+        "order": 34,
+        "tokens_per_useful": 27541
+      }
+    ]
+  },
+  "facet": {
+    "column": {
+      "field": "model",
+      "type": "nominal",
+      "sort": [
+        "opus-4.8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "header": {
+        "title": null,
+        "labelOrient": "top",
+        "labelAngle": 0,
+        "labelAnchor": "start"
+      }
+    }
+  },
+  "spacing": 48,
+  "spec": {
+    "width": 240,
+    "height": 220,
+    "layer": [
+      {
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 2
+        },
+        "encoding": {
+          "x": {
+            "field": "pr",
+            "type": "nominal",
+            "sort": {
+              "field": "order"
+            },
+            "axis": {
+              "labels": false,
+              "ticks": false,
+              "title": "PRs sorted by tokens per useful finding",
+              "titleAnchor": "end",
+              "domain": true,
+              "titlePadding": 16
+            }
+          },
+          "y": {
+            "field": "tokens_per_useful",
+            "type": "quantitative",
+            "axis": {
+              "title": "output tokens / useful finding",
+              "tickCount": 5,
+              "titleAnchor": "start",
+              "titlePadding": 16
+            }
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "opus-4.8",
+                "glm-5.2",
+                "gpt-5.5"
+              ],
+              "range": [
+                "#0f766e",
+                "#b6842a",
+                "#5b6b7a"
+              ]
+            },
+            "legend": null
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "rule",
+          "strokeDash": [
+            4,
+            4
+          ],
+          "strokeOpacity": 0.6,
+          "color": "#1a1512"
+        },
+        "encoding": {
+          "y": {
+            "aggregate": "median",
+            "field": "tokens_per_useful",
+            "type": "quantitative"
+          }
+        }
+      }
+    ]
+  }
+}

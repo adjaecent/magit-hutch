@@ -8,77 +8,85 @@ We take the golden comments from Martian's dataset (with the exclusion of =disco
 
 Due to cost reasons, Hutch's findings (across =40= PRs from the dataset) are classified by a single LLM judge (=gpt-5.2=) into: Bug hit, Validity and Noise. This has some reliability limits of single-judge variance and same-family bias. But specifically, and even with Martian and CR-Bench, the classification of /noise/ should be taken more subjectively than /bug hit/ since /noise/ is unanchored, whereas /bug hits/ and /validity/ are anchored to golden comments provided by the dataset.
 
-The results are from two models: =claude-opus-4.8= and =openai-gpt-5-5=. Both =jsonl= files are checked in.
+Results are from three models.  Configuration for each run:
+
+|-----------+------------------+----------------------------+-----------+----------------------------+----------------|
+| model     | backend          | endpoint                   | streaming | reasoning                  | prompt caching |
+|-----------+------------------+----------------------------+-----------+----------------------------+----------------|
+| opus-4.8  | Anthropic direct | =/v1/messages=             | on        | adaptive, effort =medium=  | off            |
+| glm-5.2   | OpenRouter       | =/api/v1/chat/completions= | on        | unified =:effort "medium"= | off            |
+| gpt-5.5   | OpenAI direct    | =/v1/chat/completions=     | off       | none                       | off            |
+|-----------+------------------+----------------------------+-----------+----------------------------+----------------|
+
+=gpt-5.5= streaming is off because the endpoint rejects =stream_options.include_usage= and =reasoning_effort= alongside tool calls.  Prompt caching is off everywhere (=gptel-cache= defaults to nil), so token counts are billed at full input rate per round.
+
+Hutch also emits =lgtm= findings (a per-file "I looked, nothing wrong" marker).  They carry no content, so the judge classifies all of them as NOISE.  Tables below exclude them from the finding totals and report the count separately.
 
 ** Results
 
 *** Findings
 
-|-------------------+---------+----------+-----|
-| Metric            | gpt-5.5 | opus-4.8 | Δ   |
-|-------------------+---------+----------+-----|
-| PRs evaluated     |      40 |       40 | —   |
-| Total findings    |     112 |      160 | +48 |
-| Bug hits          |      50 |       64 | +14 |
-| Valid suggestions |      58 |       92 | +34 |
-| Noise             |       4 |        4 | —   |
-| Total goldens     |     108 |      108 | —   |
-| Distinct hit      |      40 |       51 | +11 |
-| Missed            |      68 |       57 | −11 |
-|-------------------+---------+----------+-----|
+|-------------------+----------+---------+---------|
+| Metric            | opus-4.8 | glm-5.2 | gpt-5.5 |
+|-------------------+----------+---------+---------|
+| PRs evaluated     |       40 |      40 |      40 |
+| Total findings    |       95 |     105 |      86 |
+| Bug hits          |       55 |      57 |      45 |
+| Valid suggestions |       35 |      39 |      41 |
+| Noise             |        5 |       9 |       0 |
+| =lgtm= (excluded) |      116 |      27 |      19 |
+| Total goldens     |      132 |     132 |     132 |
+| Distinct hit      |       50 |      50 |      40 |
+| Missed            |       82 |      82 |      92 |
+|-------------------+----------+---------+---------|
 
 *** Quality
 
-|----------------+---------+----------+-------------------|
-| Metric         | gpt-5.5 | opus-4.8 | Δ (pp = % points) |
-|----------------+---------+----------+-------------------|
-| Avg Precision  |   35.3% |    30.1% | −5.2 pp           |
-| Avg Recall     |   40.0% |    48.3% | +8.3 pp           |
-| Avg F1         |   34.6% |    35.8% | +1.2 pp           |
-| Avg Usefulness |   93.9% |    89.2% | −4.7 pp           |
-| Avg SNR (soft) |    2.58 |     3.90 | +1.32             |
-|----------------+---------+----------+-------------------|
+|----------------+----------+---------+---------|
+| Metric         | opus-4.8 | glm-5.2 | gpt-5.5 |
+|----------------+----------+---------+---------|
+| Avg Precision  |    41.3% |   44.8% |   42.9% |
+| Avg Recall     |    38.8% |   42.9% |   32.8% |
+| Avg F1         |    38.2% |   42.0% |   34.6% |
+| Avg Usefulness |    94.7% |   91.4% |  100.0% |
+| Avg SNR (soft) |     18.0 |    10.7 |       ∞ |
+|----------------+----------+---------+---------|
 
-- Precision  = distinct goldens hit / total findings
+- Precision  = distinct goldens hit / total findings (lgtm excluded)
 - Recall     = distinct goldens hit / total goldens
 - F1         = 2 · (precision · recall) / (precision + recall)
 - Usefulness = (bug hits + valid suggestions) / total findings
-- SNR        = (bug hits + valid suggestions) / noise
+- SNR        = (bug hits + valid suggestions) / noise.  =gpt-5.5= had zero non-lgtm noise, so SNR is undefined (shown as ∞).
 
 *** Efficiency
 
-|-----------------------------+---------+----------+----------|
-| Metric                      | gpt-5.5 | opus-4.8 | Δ        |
-|-----------------------------+---------+----------+----------|
-| Avg rounds / PR             | 35.1    | 14.5     | −20.6    |
-| Total output tokens         | 421,789 | 259,851  | −161,938 |
-| Avg output tokens / PR      | 10,544  | 6,496    | −4,048   |
-| Output tokens / useful find | 3,905   | 1,665    | −2,240   |
-| Avg wall / PR (soft)        | 309.9   | 135.2    | −174.7   |
-|-----------------------------+---------+----------+----------|
+|-------------------------------+-----------+-----------+-----------|
+| Metric                        | opus-4.8  | glm-5.2   | gpt-5.5   |
+|-------------------------------+-----------+-----------+-----------|
+| Avg rounds / PR               |       9.9 |      14.1 |      36.5 |
+| Total input tokens            | 7,442,206 | 1,706,214 | 2,107,502 |
+| Total output tokens           |   268,663 |   407,102 |   381,314 |
+| Avg output tokens / PR        |     6,717 |    10,178 |     9,533 |
+| Output tokens / useful find   |     2,985 |     4,241 |     4,434 |
+| Avg wall / PR (soft)          |     189 s |     261 s |     226 s |
+|-------------------------------+-----------+-----------+-----------|
+
+Output tokens for the reasoning models (opus and glm) include thinking tokens; =gpt-5.5= here runs without reasoning.
 
 ** Broader analysis
 
-Precision, Recall, and F1 are anchored to the golden set. Usefulness and SNR depend on the judge's noise classification, which is unanchored. Read those as soft signals, not measurements. The default =max-rounds= for Hutch are based on the max average rounds per PR (set to =40=). Due to network unreliability, the wall time should only be considered indicative.
+Precision, Recall, and F1 are anchored to the golden set. Usefulness and SNR depend on the judge's noise classification, which is unanchored.  Read those as soft signals.  Wall time is indicative only (network variance).
 
-The more interesting bits are the number of rounds and tokens consumed (because of =gptel= limitations, we couldn't reliably measure input tokens for these sessions). Opus 4.8 converges in less than half the rounds, and ~60% fewer output tokens per useful finding.
+The most interesting bits are rounds and token patterns.  =opus-4.8= converges in roughly a third of the rounds =gpt-5.5= takes (9.9 vs 36.5) at the same ballpark hit count.  =gpt-5.5= regularly hits the =max-rounds= cap (p95 = 79 rounds).  =opus-4.8= burns the most input context by a wide margin (7.4M vs 1.7M for =glm-5.2= and 2.1M for =gpt-5.5=), mostly from the growing conversation Hutch resends each tool-use round.  On output tokens per useful finding, =opus-4.8= looks cheapest (2,985).
 
-Diffing the two results, gives a much finer result. Claude caught issues on 9 PRs GPT had completely missed, while GPT was strictly better on 9 different PRs. They have different blindspots. Claude seems to be better at /rescuing/ 0-recall PRs, and GPT is better at /nailing/ perfect-F1 PRs. This hints at Hutch possibly union-ing multi-model results in the future (with the cost of extra complexity).
+Model complementarity is substantial.  Each model independently hits 40-50 distinct goldens, but the union of all three hits =78=, about 55% more than any single model.  Only =18= goldens are hit by all three; =15= are opus-only, =13= glm-only, =6= gpt-only.  Different blindspots.  Hints at Hutch possibly union-ing multi-model results in the future.
 
 As a sidenote, these results put Hutch somewhere around the #16 mark on [[https://codereview.withmartian.com/?mode=offline][Martian's Offline Benchmark leaderboard]], which is competitive for a no-memory, single-shot agent.
 
 *** Contamination?
 
-=gpt-5.5= cutoff is Dec 2025, and =opus-4.8= cutoff is Jan 2026. The date span of the =40= PRs is from =2023-02= to =2025-07=, which means there are no PRs post-cutoff.
+=gpt-5.5= cutoff is Dec 2025, =opus-4.8= cutoff is Jan 2026, =glm-5.2= cutoff is around Oct 2025.  The date span of the =40= PRs is =2023-02= to =2025-07=, so there are no PRs post-cutoff for any of the three.
 
-|------------------------------------+-----+--------------------+---------------------|
-| bucket (median PR date is 2024-11) | PRs | gpt-5.5 average f1 | opus-4.8 average f1 |
-|------------------------------------+-----+--------------------+---------------------|
-| older (< 2024-11)                  |  19 |              40.3% |               48.4% |
-| newer (> 2024-11)                  |  21 |              29.3% |               24.5% |
-| Δ                                  |     |           -11.0 pp |            -23.9 pp |
-|------------------------------------+-----+--------------------+---------------------|
+Historical splits on the June 2026 baseline runs showed both opus-4.8 and gpt-5.5 doing substantially better on older PRs than newer ones (opus −23.9 pp, gpt-5.5 −11.0 pp around the =2024-11= median PR date), which /seems/ consistent with contamination or memorization but is hard to be sure.
 
-Both models do substantially better on older PRs, which /seems/ consistent with contamination or memorization, but it's hard to be sure.
-
-In any case, the point of this benchmark isn't to sit at a leaderboard, but just to validate initial-hesitation real-world usefulness. The benchmarks also completely elide patch applicability correctness, which is a focus point for Hutch, and can only reliably be done with active ("online") usage.
+In any case, the point of this benchmark isn't to sit at a leaderboard, but just to validate initial-hesitation real-world usefulness.  The benchmarks also completely elide patch applicability correctness, which is a focus point for Hutch, and can only reliably be done with active ("online") usage.

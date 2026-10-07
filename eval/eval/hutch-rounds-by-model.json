@@ -1,0 +1,873 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "background": "#f6f2ec",
+  "padding": {
+    "top": 16,
+    "right": 16,
+    "bottom": 16,
+    "left": 16
+  },
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal",
+      "domainColor": "#1a1512",
+      "domainOpacity": 0.55,
+      "tickColor": "#d9d1c4",
+      "grid": true,
+      "gridColor": "#d9d1c4",
+      "gridDash": [
+        2,
+        3
+      ]
+    },
+    "header": {
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFontWeight": "normal",
+      "labelFont": "monospace",
+      "labelFontSize": 12,
+      "labelColor": "#1a1512",
+      "labelFontWeight": "normal",
+      "labelPadding": 8
+    },
+    "legend": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "symbolType": "square"
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "model": "opus-4.8",
+        "pr": "01",
+        "order": 1,
+        "rounds": 0
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "02",
+        "order": 2,
+        "rounds": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "03",
+        "order": 3,
+        "rounds": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "04",
+        "order": 4,
+        "rounds": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "05",
+        "order": 5,
+        "rounds": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "06",
+        "order": 6,
+        "rounds": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "07",
+        "order": 7,
+        "rounds": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "08",
+        "order": 8,
+        "rounds": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "09",
+        "order": 9,
+        "rounds": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "10",
+        "order": 10,
+        "rounds": 5
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "11",
+        "order": 11,
+        "rounds": 6
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "12",
+        "order": 12,
+        "rounds": 6
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "13",
+        "order": 13,
+        "rounds": 6
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "14",
+        "order": 14,
+        "rounds": 6
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "15",
+        "order": 15,
+        "rounds": 7
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "16",
+        "order": 16,
+        "rounds": 7
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "17",
+        "order": 17,
+        "rounds": 7
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "18",
+        "order": 18,
+        "rounds": 8
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "19",
+        "order": 19,
+        "rounds": 8
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "20",
+        "order": 20,
+        "rounds": 8
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "21",
+        "order": 21,
+        "rounds": 8
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "22",
+        "order": 22,
+        "rounds": 8
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "23",
+        "order": 23,
+        "rounds": 9
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "24",
+        "order": 24,
+        "rounds": 10
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "25",
+        "order": 25,
+        "rounds": 10
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "26",
+        "order": 26,
+        "rounds": 10
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "27",
+        "order": 27,
+        "rounds": 10
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "28",
+        "order": 28,
+        "rounds": 12
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "29",
+        "order": 29,
+        "rounds": 12
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "30",
+        "order": 30,
+        "rounds": 13
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "31",
+        "order": 31,
+        "rounds": 13
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "32",
+        "order": 32,
+        "rounds": 14
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "33",
+        "order": 33,
+        "rounds": 15
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "34",
+        "order": 34,
+        "rounds": 17
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "35",
+        "order": 35,
+        "rounds": 18
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "36",
+        "order": 36,
+        "rounds": 20
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "37",
+        "order": 37,
+        "rounds": 20
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "38",
+        "order": 38,
+        "rounds": 24
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "39",
+        "order": 39,
+        "rounds": 24
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "40",
+        "order": 40,
+        "rounds": 26
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "01",
+        "order": 1,
+        "rounds": 0
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "02",
+        "order": 2,
+        "rounds": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "03",
+        "order": 3,
+        "rounds": 4
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "04",
+        "order": 4,
+        "rounds": 5
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "05",
+        "order": 5,
+        "rounds": 5
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "06",
+        "order": 6,
+        "rounds": 6
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "07",
+        "order": 7,
+        "rounds": 7
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "08",
+        "order": 8,
+        "rounds": 7
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "09",
+        "order": 9,
+        "rounds": 7
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "10",
+        "order": 10,
+        "rounds": 7
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "11",
+        "order": 11,
+        "rounds": 7
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "12",
+        "order": 12,
+        "rounds": 8
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "13",
+        "order": 13,
+        "rounds": 8
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "14",
+        "order": 14,
+        "rounds": 8
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "15",
+        "order": 15,
+        "rounds": 9
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "16",
+        "order": 16,
+        "rounds": 9
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "17",
+        "order": 17,
+        "rounds": 9
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "18",
+        "order": 18,
+        "rounds": 10
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "19",
+        "order": 19,
+        "rounds": 11
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "20",
+        "order": 20,
+        "rounds": 11
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "21",
+        "order": 21,
+        "rounds": 11
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "22",
+        "order": 22,
+        "rounds": 11
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "23",
+        "order": 23,
+        "rounds": 12
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "24",
+        "order": 24,
+        "rounds": 13
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "25",
+        "order": 25,
+        "rounds": 14
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "26",
+        "order": 26,
+        "rounds": 15
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "27",
+        "order": 27,
+        "rounds": 17
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "28",
+        "order": 28,
+        "rounds": 18
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "29",
+        "order": 29,
+        "rounds": 19
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "30",
+        "order": 30,
+        "rounds": 20
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "31",
+        "order": 31,
+        "rounds": 20
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "32",
+        "order": 32,
+        "rounds": 22
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "33",
+        "order": 33,
+        "rounds": 22
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "34",
+        "order": 34,
+        "rounds": 22
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "35",
+        "order": 35,
+        "rounds": 22
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "36",
+        "order": 36,
+        "rounds": 27
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "37",
+        "order": 37,
+        "rounds": 31
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "38",
+        "order": 38,
+        "rounds": 32
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "39",
+        "order": 39,
+        "rounds": 36
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "40",
+        "order": 40,
+        "rounds": 39
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "01",
+        "order": 1,
+        "rounds": 0
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "02",
+        "order": 2,
+        "rounds": 6
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "03",
+        "order": 3,
+        "rounds": 7
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "04",
+        "order": 4,
+        "rounds": 9
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "05",
+        "order": 5,
+        "rounds": 13
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "06",
+        "order": 6,
+        "rounds": 14
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "07",
+        "order": 7,
+        "rounds": 15
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "08",
+        "order": 8,
+        "rounds": 17
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "09",
+        "order": 9,
+        "rounds": 17
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "10",
+        "order": 10,
+        "rounds": 18
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "11",
+        "order": 11,
+        "rounds": 18
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "12",
+        "order": 12,
+        "rounds": 19
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "13",
+        "order": 13,
+        "rounds": 20
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "14",
+        "order": 14,
+        "rounds": 21
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "15",
+        "order": 15,
+        "rounds": 25
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "16",
+        "order": 16,
+        "rounds": 26
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "17",
+        "order": 17,
+        "rounds": 28
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "18",
+        "order": 18,
+        "rounds": 34
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "19",
+        "order": 19,
+        "rounds": 34
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "20",
+        "order": 20,
+        "rounds": 35
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "21",
+        "order": 21,
+        "rounds": 35
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "22",
+        "order": 22,
+        "rounds": 35
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "23",
+        "order": 23,
+        "rounds": 35
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "24",
+        "order": 24,
+        "rounds": 35
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "25",
+        "order": 25,
+        "rounds": 37
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "26",
+        "order": 26,
+        "rounds": 40
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "27",
+        "order": 27,
+        "rounds": 43
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "28",
+        "order": 28,
+        "rounds": 43
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "29",
+        "order": 29,
+        "rounds": 43
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "30",
+        "order": 30,
+        "rounds": 44
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "31",
+        "order": 31,
+        "rounds": 47
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "32",
+        "order": 32,
+        "rounds": 62
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "33",
+        "order": 33,
+        "rounds": 65
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "34",
+        "order": 34,
+        "rounds": 67
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "35",
+        "order": 35,
+        "rounds": 68
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "36",
+        "order": 36,
+        "rounds": 72
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "37",
+        "order": 37,
+        "rounds": 76
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "38",
+        "order": 38,
+        "rounds": 77
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "39",
+        "order": 39,
+        "rounds": 79
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "40",
+        "order": 40,
+        "rounds": 81
+      }
+    ]
+  },
+  "facet": {
+    "column": {
+      "field": "model",
+      "type": "nominal",
+      "sort": [
+        "opus-4.8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "header": {
+        "title": null,
+        "labelOrient": "top",
+        "labelAngle": 0,
+        "labelAnchor": "start"
+      }
+    }
+  },
+  "spacing": 48,
+  "spec": {
+    "width": 240,
+    "height": 220,
+    "layer": [
+      {
+        "mark": {
+          "type": "bar",
+          "cornerRadiusEnd": 2
+        },
+        "encoding": {
+          "x": {
+            "field": "pr",
+            "type": "nominal",
+            "sort": {
+              "field": "order"
+            },
+            "axis": {
+              "labels": false,
+              "ticks": false,
+              "title": "40 PRs sorted by rounds",
+              "titleAnchor": "end",
+              "domain": true,
+              "titlePadding": 16
+            }
+          },
+          "y": {
+            "field": "rounds",
+            "type": "quantitative",
+            "axis": {
+              "title": "rounds",
+              "tickCount": 5,
+              "titleAnchor": "start",
+              "titlePadding": 16
+            },
+            "scale": {
+              "domain": [
+                0,
+                85
+              ]
+            }
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "scale": {
+              "domain": [
+                "opus-4.8",
+                "glm-5.2",
+                "gpt-5.5"
+              ],
+              "range": [
+                "#0f766e",
+                "#b6842a",
+                "#5b6b7a"
+              ]
+            },
+            "legend": null
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "rule",
+          "strokeDash": [
+            4,
+            4
+          ],
+          "strokeOpacity": 0.6,
+          "color": "#1a1512"
+        },
+        "encoding": {
+          "y": {
+            "aggregate": "median",
+            "field": "rounds",
+            "type": "quantitative"
+          }
+        }
+      }
+    ]
+  }
+}

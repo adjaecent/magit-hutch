@@ -1,0 +1,226 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "background": "#f6f2ec",
+  "padding": {
+    "top": 16,
+    "right": 16,
+    "bottom": 16,
+    "left": 16
+  },
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal",
+      "domainColor": "#1a1512",
+      "domainOpacity": 0.55,
+      "tickColor": "#d9d1c4",
+      "grid": true,
+      "gridColor": "#d9d1c4",
+      "gridDash": [
+        2,
+        3
+      ]
+    },
+    "header": {
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFontWeight": "normal",
+      "labelFont": "monospace",
+      "labelFontSize": 12,
+      "labelColor": "#1a1512",
+      "labelFontWeight": "normal",
+      "labelPadding": 8
+    },
+    "legend": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "symbolType": "square"
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "model": "opus-4.8",
+        "segment": "unique",
+        "segOrder": 0,
+        "count": 15
+      },
+      {
+        "model": "opus-4.8",
+        "segment": "shared with 1",
+        "segOrder": 1,
+        "count": 17
+      },
+      {
+        "model": "opus-4.8",
+        "segment": "shared with both",
+        "segOrder": 2,
+        "count": 18
+      },
+      {
+        "model": "glm-5.2",
+        "segment": "unique",
+        "segOrder": 0,
+        "count": 13
+      },
+      {
+        "model": "glm-5.2",
+        "segment": "shared with 1",
+        "segOrder": 1,
+        "count": 19
+      },
+      {
+        "model": "glm-5.2",
+        "segment": "shared with both",
+        "segOrder": 2,
+        "count": 18
+      },
+      {
+        "model": "gpt-5.5",
+        "segment": "unique",
+        "segOrder": 0,
+        "count": 6
+      },
+      {
+        "model": "gpt-5.5",
+        "segment": "shared with 1",
+        "segOrder": 1,
+        "count": 16
+      },
+      {
+        "model": "gpt-5.5",
+        "segment": "shared with both",
+        "segOrder": 2,
+        "count": 18
+      }
+    ]
+  },
+  "width": 480,
+  "height": 220,
+  "layer": [
+    {
+      "mark": {
+        "type": "bar",
+        "cornerRadiusEnd": 2,
+        "stroke": "#f6f2ec",
+        "strokeWidth": 1
+      },
+      "encoding": {
+        "y": {
+          "field": "model",
+          "type": "nominal",
+          "sort": [
+            "opus-4.8",
+            "glm-5.2",
+            "gpt-5.5"
+          ],
+          "axis": {
+            "title": null,
+            "labelPadding": 8
+          }
+        },
+        "x": {
+          "aggregate": "sum",
+          "field": "count",
+          "type": "quantitative",
+          "scale": {"domain": [0, 90]},
+          "axis": {
+            "title": "distinct goldens hit",
+            "tickCount": 9,
+            "titleAnchor": "start",
+            "titlePadding": 16
+          }
+        },
+        "color": {
+          "field": "segment",
+          "type": "nominal",
+          "scale": {
+            "domain": [
+              "unique",
+              "shared with 1",
+              "shared with both"
+            ],
+            "range": [
+              "#0f766e",
+              "#b6842a",
+              "#a89f95"
+            ]
+          },
+          "legend": {
+            "orient": "bottom",
+            "title": null,
+            "offset": 24,
+            "direction": "horizontal"
+          }
+        },
+        "order": {
+          "field": "segOrder",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "data": {
+        "values": [
+          {
+            "x": 78
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "strokeDash": [
+          4,
+          4
+        ],
+        "strokeOpacity": 0.7,
+        "color": "#1a1512"
+      },
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "data": {
+        "values": [
+          {
+            "x": 78,
+            "label": "union = 78"
+          }
+        ]
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "dx": 6,
+        "dy": -8,
+        "fontSize": 11,
+        "font": "monospace",
+        "color": "#6b6259"
+      },
+      "encoding": {
+        "x": {
+          "field": "x",
+          "type": "quantitative"
+        },
+        "text": {
+          "field": "label"
+        }
+      }
+    }
+  ]
+}
