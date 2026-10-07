@@ -63,5 +63,5 @@ jobs:
         LOCAL_REPO: ${{ github.workspace }}
         RECIPE: (hutch :fetcher git :url "file://${{ github.workspace }}")
         WARN_IS_ERROR: false
-        EXIST_OK: false
+        EXIST_OK: true
       run: echo $GITHUB_REF && make -C ~/melpazoid
