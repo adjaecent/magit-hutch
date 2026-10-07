@@ -1,0 +1,231 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "background": "#f6f2ec",
+  "padding": {
+    "top": 16,
+    "right": 16,
+    "bottom": 16,
+    "left": 16
+  },
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal",
+      "domainColor": "#1a1512",
+      "domainOpacity": 0.55,
+      "tickColor": "#d9d1c4",
+      "grid": true,
+      "gridColor": "#d9d1c4",
+      "gridDash": [
+        2,
+        3
+      ]
+    },
+    "header": {
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFontWeight": "normal",
+      "labelFont": "monospace",
+      "labelFontSize": 12,
+      "labelColor": "#1a1512",
+      "labelFontWeight": "normal",
+      "labelPadding": 8
+    },
+    "legend": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "symbolType": "square"
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "model": "opus-4.8",
+        "bucket": "0%",
+        "order": 0,
+        "prs": 4
+      },
+      {
+        "model": "opus-4.8",
+        "bucket": "1-24%",
+        "order": 1,
+        "prs": 0
+      },
+      {
+        "model": "opus-4.8",
+        "bucket": "25-49%",
+        "order": 2,
+        "prs": 5
+      },
+      {
+        "model": "opus-4.8",
+        "bucket": "50-74%",
+        "order": 3,
+        "prs": 11
+      },
+      {
+        "model": "opus-4.8",
+        "bucket": "75-99%",
+        "order": 4,
+        "prs": 2
+      },
+      {
+        "model": "opus-4.8",
+        "bucket": "100%",
+        "order": 5,
+        "prs": 9
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "0%",
+        "order": 0,
+        "prs": 4
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "1-24%",
+        "order": 1,
+        "prs": 0
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "25-49%",
+        "order": 2,
+        "prs": 6
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "50-74%",
+        "order": 3,
+        "prs": 13
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "75-99%",
+        "order": 4,
+        "prs": 0
+      },
+      {
+        "model": "glm-5.2",
+        "bucket": "100%",
+        "order": 5,
+        "prs": 11
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "0%",
+        "order": 0,
+        "prs": 8
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "1-24%",
+        "order": 1,
+        "prs": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "25-49%",
+        "order": 2,
+        "prs": 5
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "50-74%",
+        "order": 3,
+        "prs": 8
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "75-99%",
+        "order": 4,
+        "prs": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "bucket": "100%",
+        "order": 5,
+        "prs": 10
+      }
+    ]
+  },
+  "facet": {
+    "column": {
+      "field": "model",
+      "type": "nominal",
+      "sort": [
+        "opus-4.8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "header": {
+        "title": null,
+        "labelOrient": "top",
+        "labelAngle": 0,
+        "labelAnchor": "start"
+      }
+    }
+  },
+  "spacing": 48,
+  "spec": {
+    "width": 240,
+    "height": 220,
+    "mark": {
+      "type": "bar",
+      "cornerRadiusEnd": 2
+    },
+    "encoding": {
+      "x": {
+        "field": "bucket",
+        "type": "nominal",
+        "sort": {
+          "field": "order"
+        },
+        "axis": {
+          "title": "",
+          "labelAngle": -45,
+          "labelPadding": 4,
+          "titlePadding": 16
+        }
+      },
+      "y": {
+        "field": "prs",
+        "type": "quantitative",
+        "axis": {
+          "title": "PRs",
+          "tickCount": 4,
+          "titleAnchor": "start",
+          "titlePadding": 16
+        }
+      },
+      "color": {
+        "field": "model",
+        "type": "nominal",
+        "scale": {
+          "domain": [
+            "opus-4.8",
+            "glm-5.2",
+            "gpt-5.5"
+          ],
+          "range": [
+            "#0f766e",
+            "#b6842a",
+            "#5b6b7a"
+          ]
+        },
+        "legend": null
+      }
+    }
+  }
+}

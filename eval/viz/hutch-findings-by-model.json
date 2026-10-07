@@ -1,0 +1,1408 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "background": "#f6f2ec",
+  "padding": {
+    "top": 16,
+    "right": 16,
+    "bottom": 16,
+    "left": 16
+  },
+  "config": {
+    "view": {
+      "stroke": null
+    },
+    "axis": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal",
+      "domainColor": "#1a1512",
+      "domainOpacity": 0.55,
+      "tickColor": "#d9d1c4",
+      "grid": true,
+      "gridColor": "#d9d1c4",
+      "gridDash": [
+        2,
+        3
+      ]
+    },
+    "header": {
+      "titleFont": "monospace",
+      "titleFontSize": 11,
+      "titleColor": "#6b6259",
+      "titleFontWeight": "normal",
+      "labelFont": "monospace",
+      "labelFontSize": 12,
+      "labelColor": "#1a1512",
+      "labelFontWeight": "normal",
+      "labelPadding": 8
+    },
+    "legend": {
+      "labelColor": "#6b6259",
+      "labelFont": "monospace",
+      "labelFontSize": 11,
+      "titleColor": "#6b6259",
+      "symbolType": "square"
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "model": "opus-4.8",
+        "pr": "01",
+        "order": 1,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "01",
+        "order": 1,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "02",
+        "order": 2,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "02",
+        "order": 2,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "02",
+        "order": 2,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "03",
+        "order": 3,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "03",
+        "order": 3,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "04",
+        "order": 4,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "04",
+        "order": 4,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "05",
+        "order": 5,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "06",
+        "order": 6,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "07",
+        "order": 7,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "07",
+        "order": 7,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "08",
+        "order": 8,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "08",
+        "order": 8,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "09",
+        "order": 9,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "09",
+        "order": 9,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "10",
+        "order": 10,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "10",
+        "order": 10,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "11",
+        "order": 11,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 4
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "12",
+        "order": 12,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "12",
+        "order": 12,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "12",
+        "order": 12,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "13",
+        "order": 13,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "13",
+        "order": 13,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "14",
+        "order": 14,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "15",
+        "order": 15,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "16",
+        "order": 16,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "16",
+        "order": 16,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "17",
+        "order": 17,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "17",
+        "order": 17,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "18",
+        "order": 18,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "18",
+        "order": 18,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "19",
+        "order": 19,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "20",
+        "order": 20,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "21",
+        "order": 21,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "21",
+        "order": 21,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "22",
+        "order": 22,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "23",
+        "order": 23,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "23",
+        "order": 23,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "24",
+        "order": 24,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "24",
+        "order": 24,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "25",
+        "order": 25,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "26",
+        "order": 26,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "27",
+        "order": 27,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "27",
+        "order": 27,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "28",
+        "order": 28,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "29",
+        "order": 29,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "29",
+        "order": 29,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "30",
+        "order": 30,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "opus-4.8",
+        "pr": "31",
+        "order": 31,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "01",
+        "order": 1,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "01",
+        "order": 1,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "02",
+        "order": 2,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "02",
+        "order": 2,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "02",
+        "order": 2,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "03",
+        "order": 3,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "03",
+        "order": 3,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "04",
+        "order": 4,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "04",
+        "order": 4,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "05",
+        "order": 5,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "05",
+        "order": 5,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "06",
+        "order": 6,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "06",
+        "order": 6,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "06",
+        "order": 6,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "07",
+        "order": 7,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "07",
+        "order": 7,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "08",
+        "order": 8,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 4
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "09",
+        "order": 9,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "09",
+        "order": 9,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "09",
+        "order": 9,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "10",
+        "order": 10,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 4
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "11",
+        "order": 11,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "11",
+        "order": 11,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "12",
+        "order": 12,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "12",
+        "order": 12,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "13",
+        "order": 13,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "13",
+        "order": 13,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "14",
+        "order": 14,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "14",
+        "order": 14,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "15",
+        "order": 15,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "15",
+        "order": 15,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "16",
+        "order": 16,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "16",
+        "order": 16,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "17",
+        "order": 17,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "17",
+        "order": 17,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "18",
+        "order": 18,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "18",
+        "order": 18,
+        "class": "noise",
+        "classOrder": 2,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "19",
+        "order": 19,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "19",
+        "order": 19,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "20",
+        "order": 20,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "21",
+        "order": 21,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "22",
+        "order": 22,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "22",
+        "order": 22,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "23",
+        "order": 23,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "23",
+        "order": 23,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "24",
+        "order": 24,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "25",
+        "order": 25,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "26",
+        "order": 26,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "27",
+        "order": 27,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "28",
+        "order": 28,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "28",
+        "order": 28,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "29",
+        "order": 29,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "30",
+        "order": 30,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "31",
+        "order": 31,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "31",
+        "order": 31,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "32",
+        "order": 32,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "33",
+        "order": 33,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "glm-5.2",
+        "pr": "34",
+        "order": 34,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "01",
+        "order": 1,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "01",
+        "order": 1,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "02",
+        "order": 2,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "02",
+        "order": 2,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 4
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "03",
+        "order": 3,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 4
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "03",
+        "order": 3,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "04",
+        "order": 4,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 5
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "05",
+        "order": 5,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "05",
+        "order": 5,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "06",
+        "order": 6,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 3
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "06",
+        "order": 6,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "07",
+        "order": 7,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "07",
+        "order": 7,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "08",
+        "order": 8,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "08",
+        "order": 8,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "09",
+        "order": 9,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "09",
+        "order": 9,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "10",
+        "order": 10,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "10",
+        "order": 10,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "11",
+        "order": 11,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 3
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "12",
+        "order": 12,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "12",
+        "order": 12,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "13",
+        "order": 13,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "13",
+        "order": 13,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "14",
+        "order": 14,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "14",
+        "order": 14,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "15",
+        "order": 15,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "15",
+        "order": 15,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "16",
+        "order": 16,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "17",
+        "order": 17,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "17",
+        "order": 17,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "18",
+        "order": 18,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "19",
+        "order": 19,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "20",
+        "order": 20,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "21",
+        "order": 21,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "22",
+        "order": 22,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "22",
+        "order": 22,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "23",
+        "order": 23,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "24",
+        "order": 24,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "25",
+        "order": 25,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "26",
+        "order": 26,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "26",
+        "order": 26,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "27",
+        "order": 27,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 2
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "28",
+        "order": 28,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "29",
+        "order": 29,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "30",
+        "order": 30,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "31",
+        "order": 31,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "32",
+        "order": 32,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "33",
+        "order": 33,
+        "class": "bug",
+        "classOrder": 0,
+        "count": 1
+      },
+      {
+        "model": "gpt-5.5",
+        "pr": "34",
+        "order": 34,
+        "class": "valid",
+        "classOrder": 1,
+        "count": 1
+      }
+    ]
+  },
+  "facet": {
+    "column": {
+      "field": "model",
+      "type": "nominal",
+      "sort": [
+        "opus-4.8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "header": {
+        "title": null,
+        "labelOrient": "top",
+        "labelAngle": 0,
+        "labelAnchor": "start"
+      }
+    }
+  },
+  "spacing": 48,
+  "spec": {
+    "width": 240,
+    "height": 220,
+    "mark": {
+      "type": "bar",
+      "cornerRadiusEnd": 2,
+      "stroke": "#f6f2ec",
+      "strokeWidth": 1
+    },
+    "encoding": {
+      "x": {
+        "field": "pr",
+        "type": "nominal",
+        "sort": {
+          "field": "order"
+        },
+        "axis": {
+          "labels": false,
+          "ticks": false,
+          "title": "40 PRs sorted by total findings",
+          "titleAnchor": "end",
+          "domain": true,
+          "titlePadding": 16
+        }
+      },
+      "y": {
+        "aggregate": "sum",
+        "field": "count",
+        "type": "quantitative",
+        "axis": {
+          "title": "findings",
+          "tickCount": 4,
+          "titleAnchor": "start",
+          "titlePadding": 16
+        }
+      },
+      "color": {
+        "field": "class",
+        "type": "nominal",
+        "scale": {
+          "domain": [
+            "bug",
+            "valid",
+            "noise"
+          ],
+          "range": [
+            "#0f766e",
+            "#b6842a",
+            "#a89f95"
+          ]
+        },
+        "legend": {
+          "orient": "top-right",
+          "title": null,
+          "offset": 4
+        }
+      },
+      "order": {
+        "field": "classOrder",
+        "type": "quantitative"
+      }
+    }
+  }
+}

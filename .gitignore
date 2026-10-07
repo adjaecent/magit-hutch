@@ -10,3 +10,6 @@
 eval/golden_comments/
 eval/logs/
 eval/traces/
+# per-model eval artifact dirs (regeneratable; traces are small enough to keep locally for rejudging)
+eval/logs-*/
+eval/traces-*/
