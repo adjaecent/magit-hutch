@@ -87,11 +87,13 @@ like line counts collide."
         :desc     (if (and head base) (format "%s..%s" base head) "")))
 
 (defun hutch--symbolic-ref ()
-  "Return the symbolic ref for origin/HEAD."
+  "Return the symbolic ref that `refs/remotes/origin/HEAD' points to.
+Returns nil if the remote HEAD is unset (common on freshly-cloned
+mirrors)."
   (magit-git-string "symbolic-ref" "refs/remotes/origin/HEAD"))
 
 (defun hutch--merge-base (a b)
-  "Return the merge-base commit between A and B."
+  "Return the merge-base commit SHA between refs A and B, or nil."
   (magit-git-string "merge-base" a b))
 
 (defun hutch--default-remote-ref ()
