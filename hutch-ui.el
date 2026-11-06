@@ -418,10 +418,32 @@ runs next time."
       (hutch-mode))
     buf))
 
+(defun hutch--walk-sections (section fn)
+  "Depth-first walk SECTION and its descendants, applying FN to each."
+  (when section
+    (funcall fn section)
+    (dolist (c (oref section children))
+      (hutch--walk-sections c fn))))
+
 (defun hutch--render-buffer (buf)
-  "Re-render BUF from `hutch--scopes' and `hutch--results'."
+  "Re-render BUF from `hutch--scopes' and `hutch--results'.
+Preserves point (by section identity) and collapsed-section state
+across the destructive rebuild."
   (with-current-buffer buf
-    (let ((inhibit-read-only t))
+    (let* ((inhibit-read-only t)
+           (saved-ident
+            (and magit-root-section
+                 (ignore-errors
+                   (let ((sec (magit-current-section)))
+                     (and sec (magit-section-ident sec))))))
+           (hidden-idents
+            (let (acc)
+              (hutch--walk-sections
+               magit-root-section
+               (lambda (s)
+                 (when (oref s hidden)
+                   (push (magit-section-ident s) acc))))
+              acc)))
       (erase-buffer)
       (setq magit-root-section nil)
       (magit-insert-section (review-root)
@@ -453,7 +475,15 @@ runs next time."
                               (hutch--scope-name scope)
                               (plist-get result :emsg))))
              (t
-              (hutch--insert-findings findings display label result)))))))))
+              (hutch--insert-findings findings display label result))))))
+      (hutch--walk-sections
+       magit-root-section
+       (lambda (s)
+         (when (member (magit-section-ident s) hidden-idents)
+           (magit-section-hide s))))
+      (when saved-ident
+        (when-let* ((sec (magit-get-section saved-ident)))
+          (goto-char (oref sec start)))))))
 
 (defun hutch--render-result (buf result)
   "Store RESULT and re-render BUF."
@@ -466,10 +496,10 @@ runs next time."
   "Insert the in-progress indicator for scope LABEL at point.
 Renders an svg progress bar when a progress entry exists, falling back
 to \"...\" before the first tick arrives."
-  (when-let* ((p (cdr (assoc label hutch--progress #'equal))))
+  (when-let* ((progress (cdr (assoc label hutch--progress #'equal))))
     (insert (propertize " " 'display
                         (svg-lib-progress-bar
-                         (min 1.0 (/ (float (car p)) (cdr p))))))))
+                         (min 1.0 (/ (float (car progress)) (cdr progress))))))))
 
 (defun hutch--render-progress (buf scope current max)
   "Record progress for SCOPE in BUF and re-render."
