@@ -29,6 +29,7 @@
 
 (require 'subr-x)
 (require 'magit)
+(require 'hutch-git)
 
 (defgroup hutch nil
   "AI code review integrated with Magit."
@@ -90,6 +91,14 @@ Returns CALLBACK unchanged when `hutch-cache-enabled' is nil."
       (when (eq (plist-get result :status) :ok)
         (hutch--cache-store kw hash result))
       (funcall callback result))))
+
+(defun hutch--cache-clear-all ()
+  "Delete every per-scope cache file under this repo's gitdir."
+  (unless (magit-gitdir)
+    (user-error "Not inside a git repository"))
+  (dolist (kw hutch--valid-scopes)
+    (let ((f (hutch--cache-file kw)))
+      (when (file-exists-p f) (delete-file f)))))
 
 (provide 'hutch-cache)
 
