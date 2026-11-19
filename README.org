@@ -199,7 +199,9 @@ reasoning models accept it on chat/completions.
   ;; git-log/git-blame are available but disabled by default.
   (setq hutch-enabled-tools '(read-file search-codebase surrounding-context))
   ;; bind under `d R' in the `magit-diff' transient (default key is "R")
-  (hutch-add-review-binding))
+  (hutch-add-review-binding)
+  ;; bind PR review under `d P' (default key is "P"), needs the gh CLI
+  (hutch-add-pr-review-binding))
 
 #+end_src
 
@@ -209,6 +211,7 @@ reasoning models accept it on chat/completions.
 | where        | shortcut                                  | action                                     |
 |--------------+-------------------------------------------+--------------------------------------------|
 | magit buffer | =d= followed by your bound key (e.g. =R=) | start a review for enabled scopes          |
+| magit buffer | =d= followed by your PR key (e.g. =P=)    | pick an open PR, review it in a worktree   |
 | hutch buffer | =C-c C-k=                                 | cancel review                              |
 | hutch buffer | =m=                                       | queue a suggestion to be applied           |
 | hutch buffer | =A=                                       | bulk-apply all patch suggestions           |

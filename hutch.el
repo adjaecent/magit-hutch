@@ -58,6 +58,7 @@
 
 (require 'hutch-agent)
 (require 'hutch-notes)
+(require 'hutch-pr)
 (require 'hutch-ui)
 
 ;; Promote successful :staged reviews to refs/hutch/reviews/<hash>
@@ -80,6 +81,16 @@ Call from your init file, ideally inside `with-eval-after-load' for
   (require 'magit)
   (transient-append-suffix 'magit-diff 'magit-diff-dwim
     `(,(or key "R") "Hutch code review" hutch-magit-review)))
+
+;;;###autoload
+(defun hutch-add-pr-review-binding (&optional key)
+  "Add KEY as a `hutch-review-pr' suffix to the `magit-diff' transient.
+KEY defaults to \"P\".  Inserts the suffix immediately after
+`magit-diff-dwim', so it appears under KEY inside the diff popup."
+  (require 'transient)
+  (require 'magit)
+  (transient-append-suffix 'magit-diff 'magit-diff-dwim
+    `(,(or key "P") "Hutch review PR" hutch-review-pr)))
 
 (provide 'hutch)
 
