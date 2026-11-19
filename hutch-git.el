@@ -108,9 +108,17 @@ mirrors)."
   "Return the first branch from `hutch--default-branch-names' that exists locally."
   (seq-find #'magit-branch-p hutch--default-branch-names))
 
+(defun hutch--branch-base-ref ()
+  "Return the current branch's `branch.<name>.hutchBase' git config, or nil.
+`hutch-review-pr' sets it to the pull request's base."
+  (when-let* ((branch (magit-get-current-branch)))
+    (magit-get "branch" branch "hutchBase")))
+
 (defun hutch--default-branch ()
-  "Return the default branch name.  Try origin/HEAD, then common names."
-  (or (hutch--default-remote-ref)
+  "Return the branch to diff the `:branch' scope against.
+Try the current branch's hutchBase, then origin/HEAD, then common names."
+  (or (hutch--branch-base-ref)
+      (hutch--default-remote-ref)
       (hutch--default-common-ref)))
 
 (defun hutch--git-diff-numstat (&rest args)
